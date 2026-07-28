@@ -1,0 +1,3 @@
+# Exclude brokerage fees and securities transaction tax from P&L
+
+Taiwan stock sells carry a securities transaction tax (0.3% for stocks, 0.1% for ETFs) and both buys and sells carry brokerage commissions, which vary by broker and discount tier. We deliberately chose **not** to model or deduct either: P&L here is always `sell amount − buy amount`, gross of trading costs. Modeling fees accurately would mean either hard-coding a tax rule that doesn't apply to US-market transactions, or asking for a per-transaction fee amount that most brokerage exports don't cleanly provide — complexity that isn't worth it for a personal tracker whose main purpose is directional P&L, not tax-accurate accounting. A reader who expects "P&L" to mean net-of-costs should not assume that here.
