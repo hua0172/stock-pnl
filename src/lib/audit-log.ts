@@ -49,6 +49,7 @@ function describeTransaction(snapshot: TransactionSnapshot): string {
 function fieldValueLabel(field: keyof TransactionSnapshot, value: unknown): string {
   if (field === "market") return MARKET_LABEL[value as Market];
   if (field === "side") return SIDE_LABEL[value as Side];
+  if (typeof value === "number") return String(Number(value.toFixed(4)));
   return String(value);
 }
 

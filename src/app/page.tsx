@@ -90,7 +90,7 @@ export default async function ReportPage() {
         <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
           股票損益
         </h1>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
           <Link
             href="/transactions/new"
             className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background"
@@ -102,6 +102,12 @@ export default async function ReportPage() {
             className="rounded-full border border-black/[.08] px-4 py-2 text-sm font-medium dark:border-white/[.145]"
           >
             匯入 CSV
+          </Link>
+          <Link href="/transactions" className="text-sm underline">
+            交易列表
+          </Link>
+          <Link href="/transactions/history" className="text-sm underline">
+            異動紀錄
           </Link>
         </div>
       </header>

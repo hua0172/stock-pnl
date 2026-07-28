@@ -2,13 +2,32 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
+import type { Transaction } from "@/generated/prisma/client";
 import type { TransactionSnapshot } from "@/lib/audit-log";
 import { parseTransactionsCsv, type CsvParseError } from "@/lib/csv";
 import { fetchHistoricalFxRate } from "@/lib/fx";
 import { MARKET_CURRENCY } from "@/lib/market";
-import type { TransactionInput } from "@/lib/pnl";
+import type { Market, Side, TransactionInput } from "@/lib/pnl";
 import { prisma } from "@/lib/prisma";
 import { validateTransactionInput } from "@/lib/transaction-input";
+
+function snapshotFromRecord(record: Transaction): TransactionSnapshot {
+  return {
+    tradeDate: record.tradeDate.toISOString().slice(0, 10),
+    market: record.market as Market,
+    symbol: record.symbol,
+    side: record.side as Side,
+    quantity: record.quantity,
+    price: record.price,
+    fxRate: record.fxRate,
+  };
+}
+
+function revalidateTransactionPages() {
+  revalidatePath("/");
+  revalidatePath("/transactions");
+  revalidatePath("/transactions/history");
+}
 
 async function createTransaction(input: TransactionInput) {
   const fxRate = await fetchHistoricalFxRate(
@@ -73,7 +92,7 @@ export async function addTransaction(
     };
   }
 
-  revalidatePath("/");
+  revalidateTransactionPages();
 
   return {};
 }
@@ -110,7 +129,109 @@ export async function importTransactionsCsv(
     }
   }
 
-  revalidatePath("/");
+  revalidateTransactionPages();
 
   return { createdCount, errors: importErrors };
+}
+
+export async function updateTransaction(
+  id: string,
+  _prevState: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const validated = validateTransactionInput({
+    tradeDate: String(formData.get("tradeDate") ?? ""),
+    market: String(formData.get("market") ?? ""),
+    symbol: String(formData.get("symbol") ?? ""),
+    side: String(formData.get("side") ?? ""),
+    quantity: String(formData.get("quantity") ?? ""),
+    price: String(formData.get("price") ?? ""),
+  });
+
+  if (!validated.value) {
+    return { error: validated.error };
+  }
+
+  const existing = await prisma.transaction.findUnique({ where: { id } });
+  if (!existing) {
+    return { error: "找不到這筆交易，可能已經被刪除。" };
+  }
+
+  const before = snapshotFromRecord(existing);
+  const dateOrMarketChanged =
+    before.tradeDate !== validated.value.tradeDate || before.market !== validated.value.market;
+
+  let fxRate = before.fxRate;
+  if (dateOrMarketChanged) {
+    try {
+      fxRate = await fetchHistoricalFxRate(
+        validated.value.tradeDate,
+        MARKET_CURRENCY[validated.value.market],
+      );
+    } catch (err) {
+      return {
+        error: `無法取得此交易日期的匯率：${(err as Error).message}`,
+      };
+    }
+  }
+
+  const after: TransactionSnapshot = { ...validated.value, fxRate };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.transaction.update({
+      where: { id },
+      data: {
+        tradeDate: new Date(after.tradeDate),
+        market: after.market,
+        symbol: after.symbol,
+        side: after.side,
+        quantity: after.quantity,
+        price: after.price,
+        fxRate: after.fxRate,
+      },
+    });
+
+    await tx.transactionAuditLog.create({
+      data: {
+        action: "UPDATE",
+        transactionId: id,
+        before: before as unknown as Prisma.InputJsonValue,
+        after: after as unknown as Prisma.InputJsonValue,
+      },
+    });
+  });
+
+  revalidateTransactionPages();
+
+  return {};
+}
+
+export interface DeleteResult {
+  error?: string;
+}
+
+export async function deleteTransaction(id: string): Promise<DeleteResult> {
+  const existing = await prisma.transaction.findUnique({ where: { id } });
+  if (!existing) {
+    return { error: "找不到這筆交易，可能已經被刪除。" };
+  }
+
+  const before = snapshotFromRecord(existing);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.transaction.delete({ where: { id } });
+
+    await tx.transactionAuditLog.create({
+      data: {
+        action: "DELETE",
+        transactionId: id,
+        before: before as unknown as Prisma.InputJsonValue,
+        after: Prisma.DbNull,
+      },
+    });
+  });
+
+  revalidateTransactionPages();
+
+  return {};
 }
