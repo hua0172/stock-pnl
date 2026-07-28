@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@/generated/prisma/client";
+import type { TransactionSnapshot } from "@/lib/audit-log";
 import { parseTransactionsCsv, type CsvParseError } from "@/lib/csv";
 import { fetchHistoricalFxRate } from "@/lib/fx";
 import { MARKET_CURRENCY } from "@/lib/market";
@@ -14,16 +16,31 @@ async function createTransaction(input: TransactionInput) {
     MARKET_CURRENCY[input.market],
   );
 
-  return prisma.transaction.create({
-    data: {
-      tradeDate: new Date(input.tradeDate),
-      market: input.market,
-      symbol: input.symbol,
-      side: input.side,
-      quantity: input.quantity,
-      price: input.price,
-      fxRate,
-    },
+  const snapshot: TransactionSnapshot = { ...input, fxRate };
+
+  return prisma.$transaction(async (tx) => {
+    const transaction = await tx.transaction.create({
+      data: {
+        tradeDate: new Date(input.tradeDate),
+        market: input.market,
+        symbol: input.symbol,
+        side: input.side,
+        quantity: input.quantity,
+        price: input.price,
+        fxRate,
+      },
+    });
+
+    await tx.transactionAuditLog.create({
+      data: {
+        action: "CREATE",
+        transactionId: transaction.id,
+        before: Prisma.DbNull,
+        after: snapshot as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    return transaction;
   });
 }
 

@@ -35,3 +35,23 @@ model Transaction {
 
   @@index([symbol])
 }
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+// Append-only: application code only ever creates rows here, never
+// updates or deletes them — this table is the permanent record of what
+// happened to the Transaction table, so it can't itself be rewritten.
+model TransactionAuditLog {
+  id            String      @id @default(cuid())
+  action        AuditAction
+  transactionId String
+  before        Json?
+  after         Json?
+  createdAt     DateTime    @default(now())
+
+  @@index([createdAt])
+}
