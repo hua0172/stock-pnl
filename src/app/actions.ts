@@ -9,7 +9,10 @@ import { fetchHistoricalFxRate } from "@/lib/fx";
 import { MARKET_CURRENCY } from "@/lib/market";
 import type { Market, Side, TransactionInput } from "@/lib/pnl";
 import { prisma } from "@/lib/prisma";
-import { validateTransactionInput } from "@/lib/transaction-input";
+import {
+  validateTransactionInput,
+  type RawTransactionInput,
+} from "@/lib/transaction-input";
 
 function snapshotFromRecord(record: Transaction): TransactionSnapshot {
   return {
@@ -21,6 +24,32 @@ function snapshotFromRecord(record: Transaction): TransactionSnapshot {
     price: record.price,
     fxRate: record.fxRate,
   };
+}
+
+function parseTransactionFormData(formData: FormData): RawTransactionInput {
+  return {
+    tradeDate: String(formData.get("tradeDate") ?? ""),
+    market: String(formData.get("market") ?? ""),
+    symbol: String(formData.get("symbol") ?? ""),
+    side: String(formData.get("side") ?? ""),
+    quantity: String(formData.get("quantity") ?? ""),
+    price: String(formData.get("price") ?? ""),
+  };
+}
+
+function formatFxRateError(err: unknown): string {
+  return `無法取得此交易日期的匯率：${(err as Error).message}`;
+}
+
+async function findExistingTransaction(
+  id: string,
+): Promise<{ existing: Transaction; before: TransactionSnapshot } | { error: string }> {
+  const existing = await prisma.transaction.findUnique({ where: { id } });
+  if (!existing) {
+    return { error: "找不到這筆交易，可能已經被刪除。" };
+  }
+
+  return { existing, before: snapshotFromRecord(existing) };
 }
 
 function revalidateTransactionPages() {
@@ -71,14 +100,7 @@ export async function addTransaction(
   _prevState: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const validated = validateTransactionInput({
-    tradeDate: String(formData.get("tradeDate") ?? ""),
-    market: String(formData.get("market") ?? ""),
-    symbol: String(formData.get("symbol") ?? ""),
-    side: String(formData.get("side") ?? ""),
-    quantity: String(formData.get("quantity") ?? ""),
-    price: String(formData.get("price") ?? ""),
-  });
+  const validated = validateTransactionInput(parseTransactionFormData(formData));
 
   if (!validated.value) {
     return { error: validated.error };
@@ -87,9 +109,7 @@ export async function addTransaction(
   try {
     await createTransaction(validated.value);
   } catch (err) {
-    return {
-      error: `無法取得此交易日期的匯率：${(err as Error).message}`,
-    };
+    return { error: formatFxRateError(err) };
   }
 
   revalidateTransactionPages();
@@ -139,25 +159,18 @@ export async function updateTransaction(
   _prevState: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const validated = validateTransactionInput({
-    tradeDate: String(formData.get("tradeDate") ?? ""),
-    market: String(formData.get("market") ?? ""),
-    symbol: String(formData.get("symbol") ?? ""),
-    side: String(formData.get("side") ?? ""),
-    quantity: String(formData.get("quantity") ?? ""),
-    price: String(formData.get("price") ?? ""),
-  });
+  const validated = validateTransactionInput(parseTransactionFormData(formData));
 
   if (!validated.value) {
     return { error: validated.error };
   }
 
-  const existing = await prisma.transaction.findUnique({ where: { id } });
-  if (!existing) {
-    return { error: "找不到這筆交易，可能已經被刪除。" };
+  const found = await findExistingTransaction(id);
+  if ("error" in found) {
+    return { error: found.error };
   }
 
-  const before = snapshotFromRecord(existing);
+  const { before } = found;
   const dateOrMarketChanged =
     before.tradeDate !== validated.value.tradeDate || before.market !== validated.value.market;
 
@@ -169,9 +182,7 @@ export async function updateTransaction(
         MARKET_CURRENCY[validated.value.market],
       );
     } catch (err) {
-      return {
-        error: `無法取得此交易日期的匯率：${(err as Error).message}`,
-      };
+      return { error: formatFxRateError(err) };
     }
   }
 
@@ -206,17 +217,13 @@ export async function updateTransaction(
   return {};
 }
 
-export interface DeleteResult {
-  error?: string;
-}
-
-export async function deleteTransaction(id: string): Promise<DeleteResult> {
-  const existing = await prisma.transaction.findUnique({ where: { id } });
-  if (!existing) {
-    return { error: "找不到這筆交易，可能已經被刪除。" };
+export async function deleteTransaction(id: string): Promise<ActionResult> {
+  const found = await findExistingTransaction(id);
+  if ("error" in found) {
+    return { error: found.error };
   }
 
-  const before = snapshotFromRecord(existing);
+  const { before } = found;
 
   await prisma.$transaction(async (tx) => {
     await tx.transaction.delete({ where: { id } });
