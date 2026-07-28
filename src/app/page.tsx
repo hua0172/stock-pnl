@@ -4,6 +4,7 @@ import { MARKET_CURRENCY, MARKET_PRICE_PREFIX } from "@/lib/market";
 import { calculatePnl, type Market, type PnlTransaction, type Side, type StockPnl } from "@/lib/pnl";
 import { fetchCurrentPrice } from "@/lib/price";
 import { prisma } from "@/lib/prisma";
+import { ReportCharts } from "./report-charts";
 
 // This page always reflects the latest transactions and live market data —
 // it must never be served from Next.js's static/ISR cache.
@@ -215,6 +216,8 @@ export default async function ReportPage() {
           </tbody>
         </table>
       </section>
+
+      <ReportCharts byStock={report.byStock} />
     </div>
   );
 }
