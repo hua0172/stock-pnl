@@ -33,6 +33,9 @@ describe("calculatePnl", () => {
         avgCostOriginal: 500,
         realizedPnlOriginal: 0,
         unrealizedPnlOriginal: 10000,
+        marketValueTwd: 60000,
+        returnRatePercent: 20,
+        allocationPercent: 100,
       },
     ]);
     expect(report.overview).toEqual({
@@ -82,6 +85,9 @@ describe("calculatePnl", () => {
         avgCostOriginal: 0,
         realizedPnlOriginal: 5000,
         unrealizedPnlOriginal: 0,
+        marketValueTwd: null,
+        returnRatePercent: null,
+        allocationPercent: null,
       },
     ]);
     expect(report.overview).toEqual({
@@ -126,22 +132,29 @@ describe("calculatePnl", () => {
       { TW: 1, US: 1 },
     );
 
-    expect(report.byStock).toEqual([
-      {
-        symbol: "2330",
-        market: "TW",
-        quantityHeld: 150,
-        avgCostTwd: 550,
-        currentPriceOriginal: 580,
-        currentFxRate: 1,
-        realizedPnlTwd: 7500,
-        unrealizedPnlTwd: 4500,
-        totalPnlTwd: 12000,
-        avgCostOriginal: 550,
-        realizedPnlOriginal: 7500,
-        unrealizedPnlOriginal: 4500,
-      },
-    ]);
+    expect(report.byStock).toHaveLength(1);
+    // returnRatePercent is 12000/82500*100, a repeating decimal — checked
+    // separately below rather than folded into the exact-equality check.
+    expect(report.byStock[0]).toMatchObject({
+      symbol: "2330",
+      market: "TW",
+      quantityHeld: 150,
+      avgCostTwd: 550,
+      currentPriceOriginal: 580,
+      currentFxRate: 1,
+      realizedPnlTwd: 7500,
+      unrealizedPnlTwd: 4500,
+      totalPnlTwd: 12000,
+      avgCostOriginal: 550,
+      realizedPnlOriginal: 7500,
+      unrealizedPnlOriginal: 4500,
+      marketValueTwd: 87000,
+      allocationPercent: 100,
+    });
+    expect(report.byStock[0].returnRatePercent).toBeCloseTo(
+      14.545454545454545,
+      9,
+    );
     expect(report.overview).toEqual({
       realizedPnlTwd: 7500,
       unrealizedPnlTwd: 4500,
@@ -195,6 +208,9 @@ describe("calculatePnl", () => {
         avgCostOriginal: 0,
         realizedPnlOriginal: 100,
         unrealizedPnlOriginal: 0,
+        marketValueTwd: null,
+        returnRatePercent: null,
+        allocationPercent: null,
       },
     ]);
     expect(report.overview).toEqual({
@@ -202,5 +218,76 @@ describe("calculatePnl", () => {
       unrealizedPnlTwd: 0,
       totalPnlTwd: 3950,
     });
+  });
+
+  test("allocationPercent is proportional to market value and sums to 100 across holdings", () => {
+    const report = calculatePnl(
+      [
+        {
+          tradeDate: "2026-01-01",
+          market: "TW",
+          symbol: "2330",
+          side: "BUY",
+          quantity: 100,
+          price: 500,
+          fxRate: 1,
+        },
+        {
+          tradeDate: "2026-01-01",
+          market: "TW",
+          symbol: "2454",
+          side: "BUY",
+          quantity: 50,
+          price: 1000,
+          fxRate: 1,
+        },
+      ],
+      { "2330": 600, "2454": 1100 },
+      { TW: 1, US: 1 },
+    );
+
+    // Market values: 2330 = 600*100 = 60000, 2454 = 1100*50 = 55000, total 115000.
+    const bySymbol = Object.fromEntries(report.byStock.map((s) => [s.symbol, s]));
+    expect(bySymbol["2330"].marketValueTwd).toBe(60000);
+    expect(bySymbol["2454"].marketValueTwd).toBe(55000);
+    expect(bySymbol["2330"].allocationPercent).toBeCloseTo(52.17391304, 6);
+    expect(bySymbol["2454"].allocationPercent).toBeCloseTo(47.82608696, 6);
+    expect(
+      bySymbol["2330"].allocationPercent! + bySymbol["2454"].allocationPercent!,
+    ).toBeCloseTo(100, 9);
+  });
+
+  test("a holding missing live price data is excluded from allocation entirely, not counted as a zero", () => {
+    const report = calculatePnl(
+      [
+        {
+          tradeDate: "2026-01-01",
+          market: "TW",
+          symbol: "2330",
+          side: "BUY",
+          quantity: 100,
+          price: 500,
+          fxRate: 1,
+        },
+        {
+          tradeDate: "2026-01-01",
+          market: "TW",
+          symbol: "2454",
+          side: "BUY",
+          quantity: 50,
+          price: 1000,
+          fxRate: 1,
+        },
+      ],
+      { "2330": 600 }, // 2454's live price could not be fetched
+      { TW: 1, US: 1 },
+    );
+
+    const bySymbol = Object.fromEntries(report.byStock.map((s) => [s.symbol, s]));
+    expect(bySymbol["2454"].marketValueTwd).toBeNull();
+    expect(bySymbol["2454"].allocationPercent).toBeNull();
+    // 2454 is excluded from the denominator entirely, so 2330 — the only
+    // holding with a known market value — gets the full 100%, not ~52%.
+    expect(bySymbol["2330"].allocationPercent).toBe(100);
   });
 });

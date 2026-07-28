@@ -31,3 +31,11 @@ _Avoid_: paper P&L, open P&L
 **FX Rate**:
 The TWD value of one unit of a transaction's original currency. Stored per-transaction at its own trade date (`1.0` for `TW` transactions). Because each transaction carries its own historical rate, FX movement between trades is folded into Realized/Unrealized P&L rather than tracked as a separate figure — see [ADR-0004](./docs/adr/0004-cost-basis-tracked-in-twd.md).
 _Avoid_: exchange rate, conversion rate
+
+**Return Rate** (報酬率):
+A holding's Total P&L expressed as a percentage of its cost: Total P&L ÷ (Weighted-Average Cost × quantity held). Undefined (and excluded from the Return Rate chart) for a closed Holding, since its quantity held is zero.
+_Avoid_: yield, performance (too vague — always mean this specific ratio)
+
+**Holding Allocation** (持股占比):
+A Holding's current market value (quantity held × current price × current FX rate, in TWD) as a percentage of the total market value across all Holdings. A closed Holding has zero market value and so zero allocation.
+_Avoid_: weight, position size

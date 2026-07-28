@@ -29,6 +29,11 @@ export interface StockPnl {
   avgCostOriginal: number;
   realizedPnlOriginal: number;
   unrealizedPnlOriginal: number;
+  // Derived reporting figures — null whenever the holding is closed
+  // (quantityHeld is 0) or live market data is unavailable.
+  marketValueTwd: number | null;
+  returnRatePercent: number | null;
+  allocationPercent: number | null;
 }
 
 export interface PnlOverview {
@@ -106,6 +111,16 @@ export function calculatePnl(
         ? (currentPriceOriginal - avgCostOriginal) * quantityHeld
         : 0;
 
+    const totalPnlTwd = realizedPnlTwd + unrealizedPnlTwd;
+
+    const marketValueTwd =
+      quantityHeld > 0 && currentPriceOriginal !== null && currentFxRate !== null
+        ? currentPriceOriginal * currentFxRate * quantityHeld
+        : null;
+
+    const returnRatePercent =
+      quantityHeld > 0 ? (totalPnlTwd / (avgCostTwd * quantityHeld)) * 100 : null;
+
     byStock.push({
       symbol,
       market,
@@ -115,11 +130,26 @@ export function calculatePnl(
       currentFxRate,
       realizedPnlTwd,
       unrealizedPnlTwd,
-      totalPnlTwd: realizedPnlTwd + unrealizedPnlTwd,
+      totalPnlTwd,
       avgCostOriginal,
       realizedPnlOriginal,
       unrealizedPnlOriginal,
+      marketValueTwd,
+      returnRatePercent,
+      allocationPercent: null, // filled in below, once every holding's market value is known
     });
+  }
+
+  const totalMarketValueTwd = byStock.reduce(
+    (sum, s) => sum + (s.marketValueTwd ?? 0),
+    0,
+  );
+
+  for (const s of byStock) {
+    s.allocationPercent =
+      s.marketValueTwd !== null && totalMarketValueTwd > 0
+        ? (s.marketValueTwd / totalMarketValueTwd) * 100
+        : null;
   }
 
   const overview = byStock.reduce(

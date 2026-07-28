@@ -1,0 +1,3 @@
+# Hardcode the UI in Traditional Chinese instead of building an i18n layer
+
+The UI text (originally written in English during initial development) is being rewritten directly in Traditional Chinese, with no language-switching mechanism and no i18n library (e.g. `next-intl`). This is a single-user, local-only personal tool with exactly one reader, so a translation/switching layer would be pure overhead. A future contributor seeing Chinese strings inlined directly in JSX rather than behind a translation function should not assume this was an oversight — multi-language support was considered and explicitly rejected as unneeded complexity for this app's actual audience of one.
