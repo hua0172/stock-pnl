@@ -21,7 +21,7 @@ The cost-basis method used for this system: every buy folds its TWD-converted co
 _Avoid_: FIFO, cost basis (without qualifying which method)
 
 **Realized P&L** (已實現損益):
-Profit or loss locked in by a `SELL` transaction: (sell price × sell trade-date FX rate − weighted-average cost per share at that moment) × quantity sold. Once realized, it does not change as later transactions happen.
+Profit or loss locked in by a `SELL` transaction: (sell price × sell trade-date FX rate − weighted-average cost per share at that moment) × quantity sold. Once realized, it does not change as later transactions happen — but a *correction* to the transaction that produced it (editing or deleting that same `SELL`) is not a later event, it's fixing the record of the one that already happened, so it does change the figure. See **Audit Log Entry** below for how a correction is distinguished from a new trade.
 _Avoid_: booked P&L, closed P&L
 
 **Unrealized P&L** (未實現損益):
@@ -39,3 +39,7 @@ _Avoid_: yield, performance (too vague — always mean this specific ratio)
 **Holding Allocation** (持股占比):
 A Holding's current market value (quantity held × current price × current FX rate, in TWD) as a percentage of the total market value across all Holdings. Undefined (`null`, not zero) for a closed Holding or one missing live price data — such a Holding is excluded from the total entirely, not counted as contributing zero.
 _Avoid_: weight, position size
+
+**Audit Log Entry** (異動紀錄):
+An immutable, append-only record of a single create, edit, or delete performed on a Transaction — captures which action it was and the Transaction's full state before and after. Exists purely for the user's own review of what changed and when; never read by the P&L calculation, which always operates on the live Transaction table only. The action type is what distinguishes an original event (`CREATE`, a real trade) from a correction to one (`UPDATE`/`DELETE`, fixing the record of a trade that already happened, not a new one).
+_Avoid_: history, change log (too generic — always mean this specific append-only record)

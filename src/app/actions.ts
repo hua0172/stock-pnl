@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { parseTransactionsCsv, TRADE_DATE_PATTERN, type CsvParseError } from "@/lib/csv";
+import { parseTransactionsCsv, type CsvParseError } from "@/lib/csv";
 import { fetchHistoricalFxRate } from "@/lib/fx";
 import { MARKET_CURRENCY } from "@/lib/market";
-import type { Market, Side, TransactionInput } from "@/lib/pnl";
+import type { TransactionInput } from "@/lib/pnl";
 import { prisma } from "@/lib/prisma";
+import { validateTransactionInput } from "@/lib/transaction-input";
 
 async function createTransaction(input: TransactionInput) {
   const fxRate = await fetchHistoricalFxRate(
@@ -34,34 +35,21 @@ export async function addTransaction(
   _prevState: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const tradeDate = String(formData.get("tradeDate") ?? "");
-  const market = String(formData.get("market") ?? "") as Market;
-  const symbol = String(formData.get("symbol") ?? "").trim();
-  const side = String(formData.get("side") ?? "") as Side;
-  const quantity = Number(formData.get("quantity"));
-  const price = Number(formData.get("price"));
+  const validated = validateTransactionInput({
+    tradeDate: String(formData.get("tradeDate") ?? ""),
+    market: String(formData.get("market") ?? ""),
+    symbol: String(formData.get("symbol") ?? ""),
+    side: String(formData.get("side") ?? ""),
+    quantity: String(formData.get("quantity") ?? ""),
+    price: String(formData.get("price") ?? ""),
+  });
 
-  if (!TRADE_DATE_PATTERN.test(tradeDate)) {
-    return { error: "交易日期格式必須是 YYYY-MM-DD。" };
-  }
-  if (market !== "TW" && market !== "US") {
-    return { error: "市場欄位必須是 TW 或 US。" };
-  }
-  if (!symbol) {
-    return { error: "請輸入股票代號。" };
-  }
-  if (side !== "BUY" && side !== "SELL") {
-    return { error: "買賣別必須是 BUY 或 SELL。" };
-  }
-  if (!Number.isFinite(quantity) || quantity <= 0) {
-    return { error: "股數必須是正數。" };
-  }
-  if (!Number.isFinite(price) || price <= 0) {
-    return { error: "價格必須是正數。" };
+  if (!validated.value) {
+    return { error: validated.error };
   }
 
   try {
-    await createTransaction({ tradeDate, market, symbol, side, quantity, price });
+    await createTransaction(validated.value);
   } catch (err) {
     return {
       error: `無法取得此交易日期的匯率：${(err as Error).message}`,
