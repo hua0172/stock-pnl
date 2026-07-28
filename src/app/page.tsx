@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { fetchCurrentFxRate } from "@/lib/fx";
-import { calculatePnl, type Market, type PnlTransaction, type Side } from "@/lib/pnl";
+import { MARKET_CURRENCY, MARKET_PRICE_PREFIX } from "@/lib/market";
+import { calculatePnl, type Market, type PnlTransaction, type Side, type StockPnl } from "@/lib/pnl";
 import { fetchCurrentPrice } from "@/lib/price";
 import { prisma } from "@/lib/prisma";
 
@@ -20,6 +21,16 @@ function pnlColor(amount: number): string {
   if (amount > 0) return "text-red-600 dark:text-red-400";
   if (amount < 0) return "text-green-600 dark:text-green-400";
   return "text-zinc-500";
+}
+
+function formatOriginal(market: Market, amount: number): string {
+  return `${MARKET_PRICE_PREFIX[market]}${amount.toFixed(2)}`;
+}
+
+// US-market rows carry a USD reference alongside every TWD figure; TW rows
+// are already denominated in TWD, so there's nothing to show alongside.
+function originalRef(stock: StockPnl, amount: number): string | null {
+  return stock.market === "US" ? `(${formatOriginal(stock.market, amount)})` : null;
 }
 
 export default async function ReportPage() {
@@ -59,12 +70,12 @@ export default async function ReportPage() {
     }
   }
 
-  const currentFxRates: Partial<Record<Market, number>> = { TW: 1 };
-  const needsUsdRate = uniqueStocks.some((t) => t.market === "US");
+  const marketsInUse = [...new Set(uniqueStocks.map((t) => t.market))];
+  const currentFxRates: Partial<Record<Market, number>> = {};
 
-  if (needsUsdRate) {
+  for (const market of marketsInUse) {
     try {
-      currentFxRates.US = await fetchCurrentFxRate("USD");
+      currentFxRates[market] = await fetchCurrentFxRate(MARKET_CURRENCY[market]);
     } catch (err) {
       dataErrors.push(String((err as Error).message));
     }
@@ -151,20 +162,42 @@ export default async function ReportPage() {
                 <td className="p-3 font-medium">{s.symbol}</td>
                 <td className="p-3">{s.market}</td>
                 <td className="p-3">{s.quantityHeld}</td>
-                <td className="p-3">{formatTwd(s.avgCostTwd)}</td>
+                <td className="p-3">
+                  {formatTwd(s.avgCostTwd)}
+                  {originalRef(s, s.avgCostOriginal) && (
+                    <span className="ml-1 text-zinc-500">
+                      {originalRef(s, s.avgCostOriginal)}
+                    </span>
+                  )}
+                </td>
                 <td className="p-3">
                   {s.currentPriceOriginal !== null
-                    ? `${s.market === "US" ? "$" : "NT$"}${s.currentPriceOriginal}`
+                    ? formatOriginal(s.market, s.currentPriceOriginal)
                     : "—"}
                 </td>
                 <td className={`p-3 ${pnlColor(s.realizedPnlTwd)}`}>
                   {formatTwd(s.realizedPnlTwd)}
+                  {originalRef(s, s.realizedPnlOriginal) && (
+                    <span className="ml-1 text-zinc-500">
+                      {originalRef(s, s.realizedPnlOriginal)}
+                    </span>
+                  )}
                 </td>
                 <td className={`p-3 ${pnlColor(s.unrealizedPnlTwd)}`}>
                   {formatTwd(s.unrealizedPnlTwd)}
+                  {originalRef(s, s.unrealizedPnlOriginal) && (
+                    <span className="ml-1 text-zinc-500">
+                      {originalRef(s, s.unrealizedPnlOriginal)}
+                    </span>
+                  )}
                 </td>
                 <td className={`p-3 font-medium ${pnlColor(s.totalPnlTwd)}`}>
                   {formatTwd(s.totalPnlTwd)}
+                  {originalRef(s, s.realizedPnlOriginal + s.unrealizedPnlOriginal) && (
+                    <span className="ml-1 font-normal text-zinc-500">
+                      {originalRef(s, s.realizedPnlOriginal + s.unrealizedPnlOriginal)}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

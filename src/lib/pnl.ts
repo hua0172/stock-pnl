@@ -1,13 +1,16 @@
 export type Market = "TW" | "US";
 export type Side = "BUY" | "SELL";
 
-export interface PnlTransaction {
+export interface TransactionInput {
   tradeDate: string;
   market: Market;
   symbol: string;
   side: Side;
   quantity: number;
   price: number;
+}
+
+export interface PnlTransaction extends TransactionInput {
   fxRate: number;
 }
 
@@ -21,6 +24,11 @@ export interface StockPnl {
   realizedPnlTwd: number;
   unrealizedPnlTwd: number;
   totalPnlTwd: number;
+  // Pure original-currency figures (no FX conversion at all) — a secondary
+  // reference alongside the TWD numbers above, e.g. for US-market rows.
+  avgCostOriginal: number;
+  realizedPnlOriginal: number;
+  unrealizedPnlOriginal: number;
 }
 
 export interface PnlOverview {
@@ -55,25 +63,34 @@ export function calculatePnl(
 
     let quantityHeld = 0;
     let totalCostTwd = 0;
+    let totalCostOriginal = 0;
     let realizedPnlTwd = 0;
+    let realizedPnlOriginal = 0;
 
     for (const t of sorted) {
       if (t.side === "BUY") {
         quantityHeld += t.quantity;
         totalCostTwd += t.quantity * t.price * t.fxRate;
+        totalCostOriginal += t.quantity * t.price;
       } else {
         const avgCostPerShareTwd =
           quantityHeld > 0 ? totalCostTwd / quantityHeld : 0;
-        const proceedsTwd = t.quantity * t.price * t.fxRate;
+        const avgCostPerShareOriginal =
+          quantityHeld > 0 ? totalCostOriginal / quantityHeld : 0;
         const costOfSoldTwd = avgCostPerShareTwd * t.quantity;
+        const costOfSoldOriginal = avgCostPerShareOriginal * t.quantity;
 
-        realizedPnlTwd += proceedsTwd - costOfSoldTwd;
+        realizedPnlTwd += t.quantity * t.price * t.fxRate - costOfSoldTwd;
+        realizedPnlOriginal += t.quantity * t.price - costOfSoldOriginal;
         totalCostTwd -= costOfSoldTwd;
+        totalCostOriginal -= costOfSoldOriginal;
         quantityHeld -= t.quantity;
       }
     }
 
     const avgCostTwd = quantityHeld > 0 ? totalCostTwd / quantityHeld : 0;
+    const avgCostOriginal =
+      quantityHeld > 0 ? totalCostOriginal / quantityHeld : 0;
     const currentPriceOriginal = currentPrices[symbol] ?? null;
     const currentFxRate = currentFxRates[market] ?? null;
 
@@ -82,6 +99,11 @@ export function calculatePnl(
       currentPriceOriginal !== null &&
       currentFxRate !== null
         ? (currentPriceOriginal * currentFxRate - avgCostTwd) * quantityHeld
+        : 0;
+
+    const unrealizedPnlOriginal =
+      quantityHeld > 0 && currentPriceOriginal !== null
+        ? (currentPriceOriginal - avgCostOriginal) * quantityHeld
         : 0;
 
     byStock.push({
@@ -94,6 +116,9 @@ export function calculatePnl(
       realizedPnlTwd,
       unrealizedPnlTwd,
       totalPnlTwd: realizedPnlTwd + unrealizedPnlTwd,
+      avgCostOriginal,
+      realizedPnlOriginal,
+      unrealizedPnlOriginal,
     });
   }
 

@@ -1,9 +1,6 @@
+import { toYahooSymbol } from "./market";
 import type { Market } from "./pnl";
 import { fetchYahooChart } from "./yahoo";
-
-function toYahooSymbol(market: Market, symbol: string): string {
-  return market === "TW" ? `${symbol}.TW` : symbol;
-}
 
 export async function fetchCurrentPrice(
   market: Market,

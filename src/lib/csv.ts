@@ -1,13 +1,6 @@
-import type { Market, Side } from "./pnl";
+import type { TransactionInput } from "./pnl";
 
-export interface CsvTransaction {
-  tradeDate: string;
-  market: Market;
-  symbol: string;
-  side: Side;
-  quantity: number;
-  price: number;
-}
+export type CsvTransaction = TransactionInput;
 
 export interface CsvParseError {
   row: number;
@@ -28,7 +21,7 @@ const REQUIRED_COLUMNS = [
   "price",
 ] as const;
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+export const TRADE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export function parseTransactionsCsv(csvText: string): CsvParseResult {
   const lines = csvText
@@ -71,7 +64,7 @@ export function parseTransactionsCsv(csvText: string): CsvParseResult {
     const quantityRaw = cells[columnIndex.quantity];
     const priceRaw = cells[columnIndex.price];
 
-    if (!DATE_PATTERN.test(tradeDate)) {
+    if (!TRADE_DATE_PATTERN.test(tradeDate)) {
       errors.push({ row, message: `Invalid trade_date: "${tradeDate}"` });
       continue;
     }

@@ -30,6 +30,9 @@ describe("calculatePnl", () => {
         realizedPnlTwd: 0,
         unrealizedPnlTwd: 10000,
         totalPnlTwd: 10000,
+        avgCostOriginal: 500,
+        realizedPnlOriginal: 0,
+        unrealizedPnlOriginal: 10000,
       },
     ]);
     expect(report.overview).toEqual({
@@ -76,6 +79,9 @@ describe("calculatePnl", () => {
         realizedPnlTwd: 5000,
         unrealizedPnlTwd: 0,
         totalPnlTwd: 5000,
+        avgCostOriginal: 0,
+        realizedPnlOriginal: 5000,
+        unrealizedPnlOriginal: 0,
       },
     ]);
     expect(report.overview).toEqual({
@@ -131,6 +137,9 @@ describe("calculatePnl", () => {
         realizedPnlTwd: 7500,
         unrealizedPnlTwd: 4500,
         totalPnlTwd: 12000,
+        avgCostOriginal: 550,
+        realizedPnlOriginal: 7500,
+        unrealizedPnlOriginal: 4500,
       },
     ]);
     expect(report.overview).toEqual({
@@ -170,6 +179,8 @@ describe("calculatePnl", () => {
     // trade's own rate: proceeds 10*160*32 = 51200, cost 10*150*31.5 = 47250,
     // realized = 3950 — more than the $100 stock move converted at either
     // single rate, because the FX rate itself moved between the two trades.
+    // The *Original fields are the pure-USD reference figures (no FX at all),
+    // so they correctly show the plain $100 stock gain rather than 3950.
     expect(report.byStock).toEqual([
       {
         symbol: "AAPL",
@@ -181,6 +192,9 @@ describe("calculatePnl", () => {
         realizedPnlTwd: 3950,
         unrealizedPnlTwd: 0,
         totalPnlTwd: 3950,
+        avgCostOriginal: 0,
+        realizedPnlOriginal: 100,
+        unrealizedPnlOriginal: 0,
       },
     ]);
     expect(report.overview).toEqual({

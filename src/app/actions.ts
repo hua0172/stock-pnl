@@ -1,13 +1,29 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { parseTransactionsCsv, type CsvParseError } from "@/lib/csv";
-import { fetchHistoricalFxRate, type Currency } from "@/lib/fx";
-import type { Market, Side } from "@/lib/pnl";
+import { parseTransactionsCsv, TRADE_DATE_PATTERN, type CsvParseError } from "@/lib/csv";
+import { fetchHistoricalFxRate } from "@/lib/fx";
+import { MARKET_CURRENCY } from "@/lib/market";
+import type { Market, Side, TransactionInput } from "@/lib/pnl";
 import { prisma } from "@/lib/prisma";
 
-function currencyForMarket(market: Market): Currency {
-  return market === "TW" ? "TWD" : "USD";
+async function createTransaction(input: TransactionInput) {
+  const fxRate = await fetchHistoricalFxRate(
+    input.tradeDate,
+    MARKET_CURRENCY[input.market],
+  );
+
+  return prisma.transaction.create({
+    data: {
+      tradeDate: new Date(input.tradeDate),
+      market: input.market,
+      symbol: input.symbol,
+      side: input.side,
+      quantity: input.quantity,
+      price: input.price,
+      fxRate,
+    },
+  });
 }
 
 export interface ActionResult {
@@ -25,7 +41,7 @@ export async function addTransaction(
   const quantity = Number(formData.get("quantity"));
   const price = Number(formData.get("price"));
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(tradeDate)) {
+  if (!TRADE_DATE_PATTERN.test(tradeDate)) {
     return { error: "Trade date must be in YYYY-MM-DD format." };
   }
   if (market !== "TW" && market !== "US") {
@@ -44,26 +60,13 @@ export async function addTransaction(
     return { error: "Price must be a positive number." };
   }
 
-  let fxRate: number;
   try {
-    fxRate = await fetchHistoricalFxRate(tradeDate, currencyForMarket(market));
+    await createTransaction({ tradeDate, market, symbol, side, quantity, price });
   } catch (err) {
     return {
       error: `Could not resolve the exchange rate for this trade date: ${(err as Error).message}`,
     };
   }
-
-  await prisma.transaction.create({
-    data: {
-      tradeDate: new Date(tradeDate),
-      market,
-      symbol,
-      side,
-      quantity,
-      price,
-      fxRate,
-    },
-  });
 
   revalidatePath("/");
 
@@ -92,21 +95,7 @@ export async function importTransactionsCsv(
   let createdCount = 0;
   for (const t of transactions) {
     try {
-      const fxRate = await fetchHistoricalFxRate(
-        t.tradeDate,
-        currencyForMarket(t.market),
-      );
-      await prisma.transaction.create({
-        data: {
-          tradeDate: new Date(t.tradeDate),
-          market: t.market,
-          symbol: t.symbol,
-          side: t.side,
-          quantity: t.quantity,
-          price: t.price,
-          fxRate,
-        },
-      });
+      await createTransaction(t);
       createdCount++;
     } catch (err) {
       importErrors.push({
