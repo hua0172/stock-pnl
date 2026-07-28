@@ -42,29 +42,29 @@ export async function addTransaction(
   const price = Number(formData.get("price"));
 
   if (!TRADE_DATE_PATTERN.test(tradeDate)) {
-    return { error: "Trade date must be in YYYY-MM-DD format." };
+    return { error: "交易日期格式必須是 YYYY-MM-DD。" };
   }
   if (market !== "TW" && market !== "US") {
-    return { error: "Market must be TW or US." };
+    return { error: "市場欄位必須是 TW 或 US。" };
   }
   if (!symbol) {
-    return { error: "Symbol is required." };
+    return { error: "請輸入股票代號。" };
   }
   if (side !== "BUY" && side !== "SELL") {
-    return { error: "Side must be BUY or SELL." };
+    return { error: "買賣別必須是 BUY 或 SELL。" };
   }
   if (!Number.isFinite(quantity) || quantity <= 0) {
-    return { error: "Quantity must be a positive number." };
+    return { error: "股數必須是正數。" };
   }
   if (!Number.isFinite(price) || price <= 0) {
-    return { error: "Price must be a positive number." };
+    return { error: "價格必須是正數。" };
   }
 
   try {
     await createTransaction({ tradeDate, market, symbol, side, quantity, price });
   } catch (err) {
     return {
-      error: `Could not resolve the exchange rate for this trade date: ${(err as Error).message}`,
+      error: `無法取得此交易日期的匯率：${(err as Error).message}`,
     };
   }
 
@@ -85,7 +85,7 @@ export async function importTransactionsCsv(
   const file = formData.get("file");
 
   if (!(file instanceof File) || file.size === 0) {
-    return { createdCount: 0, errors: [{ row: 0, message: "No file provided." }] };
+    return { createdCount: 0, errors: [{ row: 0, message: "請選擇一個檔案。" }] };
   }
 
   const text = await file.text();
@@ -100,7 +100,7 @@ export async function importTransactionsCsv(
     } catch (err) {
       importErrors.push({
         row: 0,
-        message: `Failed to import ${t.symbol} on ${t.tradeDate}: ${(err as Error).message}`,
+        message: `匯入失敗（${t.symbol}，${t.tradeDate}）：${(err as Error).message}`,
       });
     }
   }

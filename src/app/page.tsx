@@ -24,6 +24,8 @@ function pnlColor(amount: number): string {
   return "text-zinc-500";
 }
 
+const MARKET_LABEL: Record<Market, string> = { TW: "台股", US: "美股" };
+
 function formatOriginal(market: Market, amount: number): string {
   return `${MARKET_PRICE_PREFIX[market]}${amount.toFixed(2)}`;
 }
@@ -88,20 +90,20 @@ export default async function ReportPage() {
     <div className="flex flex-1 flex-col gap-8 bg-zinc-50 p-8 font-sans dark:bg-black">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
-          Stock P&amp;L
+          股票損益
         </h1>
         <div className="flex gap-3">
           <Link
             href="/transactions/new"
             className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background"
           >
-            Add transaction
+            新增交易
           </Link>
           <Link
             href="/transactions/import"
             className="rounded-full border border-black/[.08] px-4 py-2 text-sm font-medium dark:border-white/[.145]"
           >
-            Import CSV
+            匯入 CSV
           </Link>
         </div>
       </header>
@@ -109,7 +111,7 @@ export default async function ReportPage() {
       {dataErrors.length > 0 && (
         <div className="rounded-lg border border-amber-400 bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
           <p className="font-medium">
-            Some live data could not be fetched — the numbers below may be incomplete:
+            部分即時資料無法取得，以下數字可能不完整：
           </p>
           <ul className="mt-2 list-disc pl-5">
             {dataErrors.map((err, i) => (
@@ -121,19 +123,19 @@ export default async function ReportPage() {
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-900">
-          <p className="text-sm text-zinc-500">Realized P&amp;L</p>
+          <p className="text-sm text-zinc-500">已實現損益</p>
           <p className={`text-xl font-semibold ${pnlColor(report.overview.realizedPnlTwd)}`}>
             {formatTwd(report.overview.realizedPnlTwd)}
           </p>
         </div>
         <div className="rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-900">
-          <p className="text-sm text-zinc-500">Unrealized P&amp;L</p>
+          <p className="text-sm text-zinc-500">未實現損益</p>
           <p className={`text-xl font-semibold ${pnlColor(report.overview.unrealizedPnlTwd)}`}>
             {formatTwd(report.overview.unrealizedPnlTwd)}
           </p>
         </div>
         <div className="rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-900">
-          <p className="text-sm text-zinc-500">Total P&amp;L</p>
+          <p className="text-sm text-zinc-500">總損益</p>
           <p className={`text-xl font-semibold ${pnlColor(report.overview.totalPnlTwd)}`}>
             {formatTwd(report.overview.totalPnlTwd)}
           </p>
@@ -144,14 +146,14 @@ export default async function ReportPage() {
         <table className="w-full text-left text-sm">
           <thead className="border-b border-black/[.08] text-zinc-500 dark:border-white/[.145]">
             <tr>
-              <th className="p-3">Symbol</th>
-              <th className="p-3">Market</th>
-              <th className="p-3">Qty held</th>
-              <th className="p-3">Avg cost (TWD)</th>
-              <th className="p-3">Current price</th>
-              <th className="p-3">Realized</th>
-              <th className="p-3">Unrealized</th>
-              <th className="p-3">Total</th>
+              <th className="p-3">股票代號</th>
+              <th className="p-3">市場</th>
+              <th className="p-3">持有股數</th>
+              <th className="p-3">平均成本（台幣）</th>
+              <th className="p-3">目前股價</th>
+              <th className="p-3">已實現</th>
+              <th className="p-3">未實現</th>
+              <th className="p-3">總計</th>
             </tr>
           </thead>
           <tbody>
@@ -161,7 +163,7 @@ export default async function ReportPage() {
                 className="border-b border-black/[.04] last:border-0 dark:border-white/[.08]"
               >
                 <td className="p-3 font-medium">{s.symbol}</td>
-                <td className="p-3">{s.market}</td>
+                <td className="p-3">{MARKET_LABEL[s.market]}</td>
                 <td className="p-3">{s.quantityHeld}</td>
                 <td className="p-3">
                   {formatTwd(s.avgCostTwd)}
@@ -205,11 +207,10 @@ export default async function ReportPage() {
             {report.byStock.length === 0 && (
               <tr>
                 <td className="p-6 text-center text-zinc-500" colSpan={8}>
-                  No transactions yet.{" "}
+                  還沒有任何交易紀錄。
                   <Link href="/transactions/new" className="underline">
-                    Add one
+                    新增一筆
                   </Link>
-                  .
                 </td>
               </tr>
             )}

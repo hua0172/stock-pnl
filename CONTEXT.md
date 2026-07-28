@@ -4,31 +4,31 @@ A personal, local-only tracker for stock buy/sell transactions across the Taiwan
 
 ## Language
 
-**Transaction**:
+**Transaction** (交易):
 A single recorded buy or sell of a stock — market, symbol, trade date, quantity (in shares), price (in the market's original currency), and the TWD exchange rate resolved for that trade date.
 _Avoid_: trade, record, entry
 
-**Market**:
+**Market** (市場):
 Which of the two supported exchanges a transaction belongs to — `TW` (Taiwan) or `US`. Determines the transaction's original currency (TWD for `TW`, USD for `US`) and how its current price and symbol format are resolved.
 _Avoid_: exchange, region
 
-**Holding**:
+**Holding** (持股):
 The current state of a single symbol derived from its transaction history — quantity currently held and its weighted-average cost. A holding can be fully closed (zero quantity) and still appear in the report for its historical realized P&L.
 _Avoid_: position (used loosely elsewhere; here it always means this derived, per-symbol state)
 
-**Weighted-Average Cost**:
+**Weighted-Average Cost** (加權平均成本):
 The cost-basis method used for this system: every buy folds its TWD-converted cost into a single running per-share average for that symbol; a sell consumes shares at that average, never at a specific batch's price. Chosen over FIFO to match the convention of Taiwanese brokerage apps.
 _Avoid_: FIFO, cost basis (without qualifying which method)
 
-**Realized P&L**:
+**Realized P&L** (已實現損益):
 Profit or loss locked in by a `SELL` transaction: (sell price × sell trade-date FX rate − weighted-average cost per share at that moment) × quantity sold. Once realized, it does not change as later transactions happen.
 _Avoid_: booked P&L, closed P&L
 
-**Unrealized P&L**:
+**Unrealized P&L** (未實現損益):
 Paper profit or loss on a holding's remaining quantity, marked to the symbol's current price and the current USD/TWD rate: (current price × current FX rate − weighted-average cost per share) × quantity held. Recomputed every time the report is viewed.
 _Avoid_: paper P&L, open P&L
 
-**FX Rate**:
+**FX Rate** (匯率):
 The TWD value of one unit of a transaction's original currency. Stored per-transaction at its own trade date (`1.0` for `TW` transactions). Because each transaction carries its own historical rate, FX movement between trades is folded into Realized/Unrealized P&L rather than tracked as a separate figure — see [ADR-0004](./docs/adr/0004-cost-basis-tracked-in-twd.md).
 _Avoid_: exchange rate, conversion rate
 

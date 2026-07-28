@@ -40,7 +40,7 @@ export function parseTransactionsCsv(csvText: string): CsvParseResult {
       errors: [
         {
           row: 0,
-          message: `Missing required column(s): ${missingColumns.join(", ")}`,
+          message: `缺少必要欄位：${missingColumns.join("、")}`,
         },
       ],
     };
@@ -65,31 +65,31 @@ export function parseTransactionsCsv(csvText: string): CsvParseResult {
     const priceRaw = cells[columnIndex.price];
 
     if (!TRADE_DATE_PATTERN.test(tradeDate)) {
-      errors.push({ row, message: `Invalid trade_date: "${tradeDate}"` });
+      errors.push({ row, message: `交易日期格式錯誤：「${tradeDate}」` });
       continue;
     }
     if (market !== "TW" && market !== "US") {
-      errors.push({ row, message: `Invalid market: "${market}"` });
+      errors.push({ row, message: `市場欄位錯誤：「${market}」` });
       continue;
     }
     if (side !== "BUY" && side !== "SELL") {
-      errors.push({ row, message: `Invalid side: "${side}"` });
+      errors.push({ row, message: `買賣別錯誤：「${side}」` });
       continue;
     }
     if (!symbol) {
-      errors.push({ row, message: "Missing symbol" });
+      errors.push({ row, message: "缺少股票代號" });
       continue;
     }
 
     const quantity = Number(quantityRaw);
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      errors.push({ row, message: `Invalid quantity: "${quantityRaw}"` });
+      errors.push({ row, message: `股數格式錯誤：「${quantityRaw}」` });
       continue;
     }
 
     const price = Number(priceRaw);
     if (!Number.isFinite(price) || price <= 0) {
-      errors.push({ row, message: `Invalid price: "${priceRaw}"` });
+      errors.push({ row, message: `價格格式錯誤：「${priceRaw}」` });
       continue;
     }
 

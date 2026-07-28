@@ -41,9 +41,7 @@ describe("parseTransactionsCsv", () => {
     const result = parseTransactionsCsv(csv);
 
     expect(result.transactions).toEqual([]);
-    expect(result.errors).toEqual([
-      { row: 0, message: "Missing required column(s): price" },
-    ]);
+    expect(result.errors).toEqual([{ row: 0, message: "缺少必要欄位：price" }]);
   });
 
   test("an invalid market or side value is reported as a row-level error", () => {
@@ -57,8 +55,8 @@ describe("parseTransactionsCsv", () => {
 
     expect(result.transactions).toEqual([]);
     expect(result.errors).toEqual([
-      { row: 1, message: 'Invalid market: "JP"' },
-      { row: 2, message: 'Invalid side: "HOLD"' },
+      { row: 1, message: "市場欄位錯誤：「JP」" },
+      { row: 2, message: "買賣別錯誤：「HOLD」" },
     ]);
   });
 
@@ -74,9 +72,9 @@ describe("parseTransactionsCsv", () => {
 
     expect(result.transactions).toEqual([]);
     expect(result.errors).toEqual([
-      { row: 1, message: 'Invalid trade_date: "01/01/2026"' },
-      { row: 2, message: 'Invalid quantity: "abc"' },
-      { row: 3, message: 'Invalid price: "xyz"' },
+      { row: 1, message: "交易日期格式錯誤：「01/01/2026」" },
+      { row: 2, message: "股數格式錯誤：「abc」" },
+      { row: 3, message: "價格格式錯誤：「xyz」" },
     ]);
   });
 
@@ -108,6 +106,6 @@ describe("parseTransactionsCsv", () => {
         price: 160,
       },
     ]);
-    expect(result.errors).toEqual([{ row: 2, message: 'Invalid market: "JP"' }]);
+    expect(result.errors).toEqual([{ row: 2, message: "市場欄位錯誤：「JP」" }]);
   });
 });

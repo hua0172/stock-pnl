@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Stock P&L",
-  description: "Personal stock profit & loss tracker",
+  title: "股票損益",
+  description: "個人股票損益追蹤系統",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="zh-Hant-TW"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
