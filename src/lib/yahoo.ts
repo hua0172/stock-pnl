@@ -20,7 +20,7 @@ export async function fetchYahooChart(
 
   if (!res.ok) {
     throw new Error(
-      `Yahoo Finance request failed for "${symbol}": ${res.status} ${res.statusText}`,
+      `無法連線至 Yahoo Finance（「${symbol}」）：${res.status} ${res.statusText}`,
     );
   }
 
@@ -28,7 +28,7 @@ export async function fetchYahooChart(
   const result = data?.chart?.result?.[0];
 
   if (!result) {
-    throw new Error(`Yahoo Finance returned no data for "${symbol}"`);
+    throw new Error(`Yahoo Finance 沒有回傳「${symbol}」的資料`);
   }
 
   return result;

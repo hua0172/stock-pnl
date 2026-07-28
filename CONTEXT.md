@@ -33,9 +33,9 @@ The TWD value of one unit of a transaction's original currency. Stored per-trans
 _Avoid_: exchange rate, conversion rate
 
 **Return Rate** (報酬率):
-A holding's Total P&L expressed as a percentage of its cost: Total P&L ÷ (Weighted-Average Cost × quantity held). Undefined (and excluded from the Return Rate chart) for a closed Holding, since its quantity held is zero.
+A holding's Total P&L expressed as a percentage of its cost: Total P&L ÷ (Weighted-Average Cost × quantity held). Undefined (`null`, not zero — and excluded from the Return Rate chart) for a closed Holding (zero quantity held) or an open Holding missing a current price or FX rate, since Total P&L itself is incomplete without one.
 _Avoid_: yield, performance (too vague — always mean this specific ratio)
 
 **Holding Allocation** (持股占比):
-A Holding's current market value (quantity held × current price × current FX rate, in TWD) as a percentage of the total market value across all Holdings. A closed Holding has zero market value and so zero allocation.
+A Holding's current market value (quantity held × current price × current FX rate, in TWD) as a percentage of the total market value across all Holdings. Undefined (`null`, not zero) for a closed Holding or one missing live price data — such a Holding is excluded from the total entirely, not counted as contributing zero.
 _Avoid_: weight, position size

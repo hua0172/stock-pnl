@@ -39,9 +39,6 @@ const CATEGORICAL_DARK = [
   "#9085e9",
   "#e66767",
 ];
-const OTHER_SLICE_COLOR = "#898781"; // muted ink token — a residual bucket, not a series identity
-const OTHER_LABEL = "其他";
-const MAX_PIE_SLICES = 8;
 
 // Diverging red(gain)/green(loss) — matches this app's existing pnlColor
 // convention (Taiwan stock-market convention), re-validated for CVD/contrast
@@ -49,9 +46,45 @@ const MAX_PIE_SLICES = 8;
 const RETURN_POSITIVE = { light: "#e34948", dark: "#e66767" };
 const RETURN_NEGATIVE = { light: "#008300", dark: "#008300" };
 
+const LIGHT_THEME = {
+  categorical: CATEGORICAL_LIGHT,
+  gridColor: "#e1e0d9",
+  axisTextColor: "#52514e",
+  tooltipBg: "#fcfcfb",
+  cursorFill: "rgba(0,0,0,0.04)",
+  returnPositive: RETURN_POSITIVE.light,
+  returnNegative: RETURN_NEGATIVE.light,
+};
+const DARK_THEME = {
+  categorical: CATEGORICAL_DARK,
+  gridColor: "#2c2c2a",
+  axisTextColor: "#c3c2b7",
+  tooltipBg: "#1a1a19",
+  cursorFill: "rgba(255,255,255,0.06)",
+  returnPositive: RETURN_POSITIVE.dark,
+  returnNegative: RETURN_NEGATIVE.dark,
+};
+
+function toNumber(v: unknown): number {
+  return typeof v === "number" ? v : Number(v);
+}
+
 function formatPercent(v: unknown): string {
-  const n = typeof v === "number" ? v : Number(v);
-  return `${n.toFixed(1)}%`;
+  return `${toNumber(v).toFixed(1)}%`;
+}
+
+function formatSignedPercent(v: unknown): string {
+  const n = toNumber(v);
+  return `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
+}
+
+function pickNonNull<K extends "returnRatePercent" | "allocationPercent">(
+  byStock: StockPnl[],
+  key: K,
+): { symbol: string; value: number }[] {
+  return byStock
+    .filter((s): s is StockPnl & Record<K, number> => s[key] !== null)
+    .map((s) => ({ symbol: s.symbol, value: s[key] }));
 }
 
 function subscribeToColorScheme(callback: () => void): () => void {
@@ -78,32 +111,12 @@ function usePrefersDark(): boolean {
 
 export function ReportCharts({ byStock }: { byStock: StockPnl[] }) {
   const dark = usePrefersDark();
-  const categorical = dark ? CATEGORICAL_DARK : CATEGORICAL_LIGHT;
-  const gridColor = dark ? "#2c2c2a" : "#e1e0d9";
-  const axisTextColor = dark ? "#c3c2b7" : "#52514e";
-  const tooltipBg = dark ? "#1a1a19" : "#fcfcfb";
+  const theme = dark ? DARK_THEME : LIGHT_THEME;
 
-  const returnRateData = byStock
-    .filter((s): s is StockPnl & { returnRatePercent: number } => s.returnRatePercent !== null)
-    .map((s) => ({ symbol: s.symbol, value: s.returnRatePercent }));
-
-  const allocationRaw = byStock
-    .filter((s): s is StockPnl & { allocationPercent: number } => s.allocationPercent !== null)
-    .map((s) => ({ symbol: s.symbol, value: s.allocationPercent }))
-    .sort((a, b) => b.value - a.value);
-
-  const allocationData =
-    allocationRaw.length > MAX_PIE_SLICES
-      ? [
-          ...allocationRaw.slice(0, MAX_PIE_SLICES - 1),
-          {
-            symbol: OTHER_LABEL,
-            value: allocationRaw
-              .slice(MAX_PIE_SLICES - 1)
-              .reduce((sum, d) => sum + d.value, 0),
-          },
-        ]
-      : allocationRaw;
+  const returnRateData = pickNonNull(byStock, "returnRatePercent");
+  const allocationData = pickNonNull(byStock, "allocationPercent").sort(
+    (a, b) => b.value - a.value,
+  );
 
   if (returnRateData.length === 0 && allocationData.length === 0) {
     return null;
@@ -116,52 +129,41 @@ export function ReportCharts({ byStock }: { byStock: StockPnl[] }) {
           <h2 className="mb-2 text-sm font-medium text-zinc-500">報酬率</h2>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={returnRateData} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke={gridColor} vertical={false} />
+              <CartesianGrid stroke={theme.gridColor} vertical={false} />
               <XAxis
                 dataKey="symbol"
-                tick={{ fill: axisTextColor, fontSize: 12 }}
-                axisLine={{ stroke: gridColor }}
+                tick={{ fill: theme.axisTextColor, fontSize: 12 }}
+                axisLine={{ stroke: theme.gridColor }}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fill: axisTextColor, fontSize: 12 }}
+                tick={{ fill: theme.axisTextColor, fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v: number) => `${v}%`}
               />
               <Tooltip
                 formatter={(v) => [formatPercent(v), "報酬率"]}
-                cursor={{ fill: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" }}
+                cursor={{ fill: theme.cursorFill }}
                 contentStyle={{
-                  background: tooltipBg,
+                  background: theme.tooltipBg,
                   border: "none",
                   borderRadius: 8,
-                  color: axisTextColor,
+                  color: theme.axisTextColor,
                 }}
               />
               <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={24}>
                 {returnRateData.map((d, i) => (
                   <Cell
                     key={i}
-                    fill={
-                      d.value >= 0
-                        ? dark
-                          ? RETURN_POSITIVE.dark
-                          : RETURN_POSITIVE.light
-                        : dark
-                          ? RETURN_NEGATIVE.dark
-                          : RETURN_NEGATIVE.light
-                    }
+                    fill={d.value >= 0 ? theme.returnPositive : theme.returnNegative}
                   />
                 ))}
                 <LabelList
                   dataKey="value"
                   position="top"
-                  formatter={(v: unknown) => {
-                    const n = typeof v === "number" ? v : Number(v);
-                    return `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
-                  }}
-                  fill={axisTextColor}
+                  formatter={formatSignedPercent}
+                  fill={theme.axisTextColor}
                   fontSize={12}
                 />
               </Bar>
@@ -179,15 +181,15 @@ export function ReportCharts({ byStock }: { byStock: StockPnl[] }) {
               <Tooltip
                 formatter={(v) => [formatPercent(v), "占比"]}
                 contentStyle={{
-                  background: tooltipBg,
+                  background: theme.tooltipBg,
                   border: "none",
                   borderRadius: 8,
-                  color: axisTextColor,
+                  color: theme.axisTextColor,
                 }}
               />
               <Legend
                 formatter={(value: string) => (
-                  <span style={{ color: axisTextColor }}>{value}</span>
+                  <span style={{ color: theme.axisTextColor }}>{value}</span>
                 )}
               />
               <Pie
@@ -198,14 +200,7 @@ export function ReportCharts({ byStock }: { byStock: StockPnl[] }) {
                 label={(entry) => `${entry.name} ${((entry.percent ?? 0) * 100).toFixed(0)}%`}
               >
                 {allocationData.map((d, i) => (
-                  <Cell
-                    key={d.symbol}
-                    fill={
-                      d.symbol === OTHER_LABEL
-                        ? OTHER_SLICE_COLOR
-                        : categorical[i % categorical.length]
-                    }
-                  />
+                  <Cell key={d.symbol} fill={theme.categorical[i % theme.categorical.length]} />
                 ))}
               </Pie>
             </PieChart>

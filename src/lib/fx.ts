@@ -13,7 +13,7 @@ export async function fetchCurrentFxRate(
   const rate = result.meta.regularMarketPrice;
 
   if (typeof rate !== "number") {
-    throw new Error("No current USD/TWD rate available");
+    throw new Error("目前無法取得美元／台幣匯率");
   }
 
   return rate;
@@ -38,7 +38,7 @@ export async function fetchHistoricalFxRate(
   }
 
   if (bestIndex === -1) {
-    throw new Error(`No USD/TWD rate available on or before ${date}`);
+    throw new Error(`找不到 ${date} 或之前的美元／台幣匯率`);
   }
 
   return closes[bestIndex] as number;

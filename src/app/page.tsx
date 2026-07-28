@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { fetchCurrentFxRate } from "@/lib/fx";
-import { MARKET_CURRENCY, MARKET_PRICE_PREFIX } from "@/lib/market";
+import { MARKET_CURRENCY, MARKET_LABEL, MARKET_PRICE_PREFIX } from "@/lib/market";
 import { calculatePnl, type Market, type PnlTransaction, type Side, type StockPnl } from "@/lib/pnl";
 import { fetchCurrentPrice } from "@/lib/price";
 import { prisma } from "@/lib/prisma";
@@ -23,8 +23,6 @@ function pnlColor(amount: number): string {
   if (amount < 0) return "text-green-600 dark:text-green-400";
   return "text-zinc-500";
 }
-
-const MARKET_LABEL: Record<Market, string> = { TW: "台股", US: "美股" };
 
 function formatOriginal(market: Market, amount: number): string {
   return `${MARKET_PRICE_PREFIX[market]}${amount.toFixed(2)}`;

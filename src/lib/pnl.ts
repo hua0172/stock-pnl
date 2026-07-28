@@ -113,13 +113,23 @@ export function calculatePnl(
 
     const totalPnlTwd = realizedPnlTwd + unrealizedPnlTwd;
 
+    // An open position (quantityHeld > 0) needs a current price and FX rate to
+    // have a *complete* P&L — without them, totalPnlTwd silently falls back
+    // to realized-only (unrealizedPnlTwd defaults to 0 above), which is
+    // incomplete data, not a real answer. marketValueTwd and returnRatePercent
+    // both depend on that completeness, so both share this condition.
+    const hasCompleteMarketData =
+      currentPriceOriginal !== null && currentFxRate !== null;
+
     const marketValueTwd =
-      quantityHeld > 0 && currentPriceOriginal !== null && currentFxRate !== null
+      quantityHeld > 0 && hasCompleteMarketData
         ? currentPriceOriginal * currentFxRate * quantityHeld
         : null;
 
     const returnRatePercent =
-      quantityHeld > 0 ? (totalPnlTwd / (avgCostTwd * quantityHeld)) * 100 : null;
+      quantityHeld > 0 && hasCompleteMarketData
+        ? (totalPnlTwd / (avgCostTwd * quantityHeld)) * 100
+        : null;
 
     byStock.push({
       symbol,

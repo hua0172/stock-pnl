@@ -11,6 +11,11 @@ export const MARKET_PRICE_PREFIX: Record<Market, string> = {
   US: "$",
 };
 
+export const MARKET_LABEL: Record<Market, string> = {
+  TW: "台股",
+  US: "美股",
+};
+
 export function toYahooSymbol(market: Market, symbol: string): string {
   return market === "TW" ? `${symbol}.TW` : symbol;
 }

@@ -289,5 +289,11 @@ describe("calculatePnl", () => {
     // 2454 is excluded from the denominator entirely, so 2330 — the only
     // holding with a known market value — gets the full 100%, not ~52%.
     expect(bySymbol["2330"].allocationPercent).toBe(100);
+    // 2454 is still open (quantityHeld > 0) but its unrealizedPnlTwd silently
+    // falls back to 0 without a current price, which would make its
+    // returnRatePercent understate reality (realized-only, missing the paper
+    // gain/loss) rather than reflect it — so it must be null, not a
+    // misleadingly-computed number, and excluded from the Return Rate chart.
+    expect(bySymbol["2454"].returnRatePercent).toBeNull();
   });
 });

@@ -10,7 +10,7 @@ export async function fetchCurrentPrice(
   const price = result.meta.regularMarketPrice;
 
   if (typeof price !== "number") {
-    throw new Error(`No current price available for "${symbol}"`);
+    throw new Error(`目前無法取得「${symbol}」的股價`);
   }
 
   return price;
