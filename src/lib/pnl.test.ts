@@ -458,4 +458,43 @@ describe("calculatePnl", () => {
       totalPnlTwd: 18000,
     });
   });
+
+  test("a dividend for a symbol with zero transactions is still reported and counted in the overview total", () => {
+    // This can happen if every transaction for a symbol is later deleted
+    // while its dividend records remain — the dividend must not silently
+    // disappear from the report just because there's no transaction history.
+    const report = calculatePnl(
+      [],
+      [{ symbol: "2330", market: "TW", amount: 1000, fxRate: 1 }],
+      {},
+      { TW: 1, US: 1 },
+    );
+
+    expect(report.byStock).toEqual([
+      {
+        symbol: "2330",
+        market: "TW",
+        quantityHeld: 0,
+        avgCostTwd: 0,
+        currentPriceOriginal: null,
+        currentFxRate: 1,
+        realizedPnlTwd: 0,
+        unrealizedPnlTwd: 0,
+        totalPnlTwd: 1000,
+        avgCostOriginal: 0,
+        realizedPnlOriginal: 0,
+        unrealizedPnlOriginal: 0,
+        marketValueTwd: null,
+        returnRatePercent: null,
+        allocationPercent: null,
+        dividendTwd: 1000,
+      },
+    ]);
+    expect(report.overview).toEqual({
+      realizedPnlTwd: 0,
+      unrealizedPnlTwd: 0,
+      dividendTwd: 1000,
+      totalPnlTwd: 1000,
+    });
+  });
 });

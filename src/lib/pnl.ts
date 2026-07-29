@@ -83,11 +83,13 @@ export function calculatePnl(
   }
 
   const dividendTwdBySymbol = new Map<string, number>();
+  const dividendMarketBySymbol = new Map<string, Market>();
   for (const d of dividends) {
     dividendTwdBySymbol.set(
       d.symbol,
       (dividendTwdBySymbol.get(d.symbol) ?? 0) + d.amount * d.fxRate,
     );
+    dividendMarketBySymbol.set(d.symbol, d.market);
   }
 
   const byStock: StockPnl[] = [];
@@ -179,6 +181,37 @@ export function calculatePnl(
       marketValueTwd,
       returnRatePercent,
       allocationPercent: null, // filled in below, once every holding's market value is known
+      dividendTwd,
+    });
+  }
+
+  // A symbol can have dividend records with no transaction history at all —
+  // e.g. every transaction was later deleted while the dividends remained.
+  // Report it as a no-cost-basis closed holding so its dividend still counts,
+  // rather than silently dropping it from byStock and the overview total.
+  for (const [symbol, dividendTwd] of dividendTwdBySymbol) {
+    if (bySymbol.has(symbol)) continue;
+
+    const market = dividendMarketBySymbol.get(symbol)!;
+    const currentPriceOriginal = currentPrices[symbol] ?? null;
+    const currentFxRate = currentFxRates[market] ?? null;
+
+    byStock.push({
+      symbol,
+      market,
+      quantityHeld: 0,
+      avgCostTwd: 0,
+      currentPriceOriginal,
+      currentFxRate,
+      realizedPnlTwd: 0,
+      unrealizedPnlTwd: 0,
+      totalPnlTwd: dividendTwd,
+      avgCostOriginal: 0,
+      realizedPnlOriginal: 0,
+      unrealizedPnlOriginal: 0,
+      marketValueTwd: null,
+      returnRatePercent: null,
+      allocationPercent: null,
       dividendTwd,
     });
   }
