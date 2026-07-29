@@ -55,6 +55,11 @@ export interface StockPnl {
   // depend on live market data, and a closed holding keeps its historical
   // total.
   dividendTwd: number;
+  // Cost basis of the quantity currently held (avgCost × quantityHeld), in
+  // TWD and in the holding's original currency. Like dividendTwd, always a
+  // number — 0 for a closed holding, since there's no remaining cost basis.
+  totalCostTwd: number;
+  totalCostOriginal: number;
 }
 
 export interface PnlOverview {
@@ -100,35 +105,41 @@ export function calculatePnl(
     const market = sorted[0].market;
 
     let quantityHeld = 0;
-    let totalCostTwd = 0;
-    let totalCostOriginal = 0;
+    // Running cost-of-currently-held-shares as the loop consumes BUY/SELL
+    // transactions — not the same thing as the StockPnl.totalCostTwd field
+    // below, which is re-derived from avgCostTwd so it inherits that field's
+    // clean-zero guarantee on a closed position (this accumulator alone can
+    // leave tiny floating-point residue instead of landing exactly on 0,
+    // e.g. after a SELL divides then re-multiplies a fractional share count).
+    let costOfHeldTwd = 0;
+    let costOfHeldOriginal = 0;
     let realizedPnlTwd = 0;
     let realizedPnlOriginal = 0;
 
     for (const t of sorted) {
       if (t.side === "BUY") {
         quantityHeld += t.quantity;
-        totalCostTwd += t.quantity * t.price * t.fxRate;
-        totalCostOriginal += t.quantity * t.price;
+        costOfHeldTwd += t.quantity * t.price * t.fxRate;
+        costOfHeldOriginal += t.quantity * t.price;
       } else {
         const avgCostPerShareTwd =
-          quantityHeld > 0 ? totalCostTwd / quantityHeld : 0;
+          quantityHeld > 0 ? costOfHeldTwd / quantityHeld : 0;
         const avgCostPerShareOriginal =
-          quantityHeld > 0 ? totalCostOriginal / quantityHeld : 0;
+          quantityHeld > 0 ? costOfHeldOriginal / quantityHeld : 0;
         const costOfSoldTwd = avgCostPerShareTwd * t.quantity;
         const costOfSoldOriginal = avgCostPerShareOriginal * t.quantity;
 
         realizedPnlTwd += t.quantity * t.price * t.fxRate - costOfSoldTwd;
         realizedPnlOriginal += t.quantity * t.price - costOfSoldOriginal;
-        totalCostTwd -= costOfSoldTwd;
-        totalCostOriginal -= costOfSoldOriginal;
+        costOfHeldTwd -= costOfSoldTwd;
+        costOfHeldOriginal -= costOfSoldOriginal;
         quantityHeld -= t.quantity;
       }
     }
 
-    const avgCostTwd = quantityHeld > 0 ? totalCostTwd / quantityHeld : 0;
+    const avgCostTwd = quantityHeld > 0 ? costOfHeldTwd / quantityHeld : 0;
     const avgCostOriginal =
-      quantityHeld > 0 ? totalCostOriginal / quantityHeld : 0;
+      quantityHeld > 0 ? costOfHeldOriginal / quantityHeld : 0;
     const currentPriceOriginal = currentPrices[symbol] ?? null;
     const currentFxRate = currentFxRates[market] ?? null;
 
@@ -182,6 +193,8 @@ export function calculatePnl(
       returnRatePercent,
       allocationPercent: null, // filled in below, once every holding's market value is known
       dividendTwd,
+      totalCostTwd: avgCostTwd * quantityHeld,
+      totalCostOriginal: avgCostOriginal * quantityHeld,
     });
   }
 
@@ -213,6 +226,8 @@ export function calculatePnl(
       returnRatePercent: null,
       allocationPercent: null,
       dividendTwd,
+      totalCostTwd: 0,
+      totalCostOriginal: 0,
     });
   }
 

@@ -38,6 +38,8 @@ describe("calculatePnl", () => {
         returnRatePercent: 20,
         allocationPercent: 100,
         dividendTwd: 0,
+        totalCostTwd: 50000,
+        totalCostOriginal: 50000,
       },
     ]);
     expect(report.overview).toEqual({
@@ -93,6 +95,8 @@ describe("calculatePnl", () => {
         returnRatePercent: null,
         allocationPercent: null,
         dividendTwd: 0,
+        totalCostTwd: 0,
+        totalCostOriginal: 0,
       },
     ]);
     expect(report.overview).toEqual({
@@ -158,6 +162,8 @@ describe("calculatePnl", () => {
       marketValueTwd: 87000,
       allocationPercent: 100,
       dividendTwd: 0,
+      totalCostTwd: 82500,
+      totalCostOriginal: 82500,
     });
     expect(report.byStock[0].returnRatePercent).toBeCloseTo(
       14.545454545454545,
@@ -222,6 +228,8 @@ describe("calculatePnl", () => {
         returnRatePercent: null,
         allocationPercent: null,
         dividendTwd: 0,
+        totalCostTwd: 0,
+        totalCostOriginal: 0,
       },
     ]);
     expect(report.overview).toEqual({
@@ -229,6 +237,39 @@ describe("calculatePnl", () => {
       unrealizedPnlTwd: 0,
       dividendTwd: 0,
       totalPnlTwd: 3950,
+    });
+  });
+
+  test("an open US holding's Total Cost reflects distinct TWD and original-currency figures", () => {
+    const report = calculatePnl(
+      [
+        {
+          tradeDate: "2026-01-01",
+          market: "US",
+          symbol: "AAPL",
+          side: "BUY",
+          quantity: 10,
+          price: 150,
+          fxRate: 31.5,
+        },
+      ],
+      [],
+      { AAPL: 165 },
+      { TW: 1, US: 32 },
+    );
+
+    // avgCostTwd = 150*31.5 = 4725, so totalCostTwd = 4725*10 = 47250 — a
+    // distinct figure from totalCostOriginal = avgCostOriginal*10 = 1500,
+    // since the TWD figure carries the trade's own historical FX rate while
+    // the original-currency figure carries none at all.
+    expect(report.byStock[0]).toMatchObject({
+      symbol: "AAPL",
+      market: "US",
+      quantityHeld: 10,
+      avgCostTwd: 4725,
+      avgCostOriginal: 150,
+      totalCostTwd: 47250,
+      totalCostOriginal: 1500,
     });
   });
 
@@ -488,6 +529,8 @@ describe("calculatePnl", () => {
         returnRatePercent: null,
         allocationPercent: null,
         dividendTwd: 1000,
+        totalCostTwd: 0,
+        totalCostOriginal: 0,
       },
     ]);
     expect(report.overview).toEqual({

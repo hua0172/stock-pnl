@@ -20,6 +20,10 @@ _Avoid_: position (used loosely elsewhere; here it always means this derived, pe
 The cost-basis method used for this system: every buy folds its TWD-converted cost into a single running per-share average for that symbol; a sell consumes shares at that average, never at a specific batch's price. Chosen over FIFO to match the convention of Taiwanese brokerage apps.
 _Avoid_: FIFO, cost basis (without qualifying which method)
 
+**Total Cost** (總成本):
+A Holding's cost basis for its currently-held quantity: Weighted-Average Cost per share × quantity held, in TWD (with the original-currency amount shown alongside for `US` Holdings, same as Weighted-Average Cost). Zero for a closed Holding (zero quantity held) — there is no remaining cost basis to report. Distinct from cumulative historical investment, which this does not track.
+_Avoid_: cost basis (without qualifying "current holding" — always mean this specific holding-scoped figure), total investment (implies cumulative including sold shares, which this is not)
+
 **Realized P&L** (已實現損益):
 Profit or loss locked in by a `SELL` transaction: (sell price × sell trade-date FX rate − weighted-average cost per share at that moment) × quantity sold. Once realized, it does not change as later transactions happen — but a *correction* to the transaction that produced it (editing or deleting that same `SELL`) is not a later event, it's fixing the record of the one that already happened, so it does change the figure. See **Audit Log Entry** below for how a correction is distinguished from a new trade.
 _Avoid_: booked P&L, closed P&L
