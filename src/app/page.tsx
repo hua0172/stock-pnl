@@ -82,7 +82,7 @@ export default async function ReportPage() {
     }
   }
 
-  const report = calculatePnl(transactions, currentPrices, currentFxRates);
+  const report = calculatePnl(transactions, [], currentPrices, currentFxRates);
 
   return (
     <div className="flex flex-1 flex-col gap-8 bg-zinc-50 p-8 font-sans dark:bg-black">

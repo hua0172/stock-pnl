@@ -15,6 +15,7 @@ describe("calculatePnl", () => {
           fxRate: 1,
         },
       ],
+      [],
       { "2330": 600 },
       { TW: 1, US: 1 },
     );
@@ -36,11 +37,13 @@ describe("calculatePnl", () => {
         marketValueTwd: 60000,
         returnRatePercent: 20,
         allocationPercent: 100,
+        dividendTwd: 0,
       },
     ]);
     expect(report.overview).toEqual({
       realizedPnlTwd: 0,
       unrealizedPnlTwd: 10000,
+      dividendTwd: 0,
       totalPnlTwd: 10000,
     });
   });
@@ -67,6 +70,7 @@ describe("calculatePnl", () => {
           fxRate: 1,
         },
       ],
+      [],
       { "2330": 600 },
       { TW: 1, US: 1 },
     );
@@ -88,11 +92,13 @@ describe("calculatePnl", () => {
         marketValueTwd: null,
         returnRatePercent: null,
         allocationPercent: null,
+        dividendTwd: 0,
       },
     ]);
     expect(report.overview).toEqual({
       realizedPnlTwd: 5000,
       unrealizedPnlTwd: 0,
+      dividendTwd: 0,
       totalPnlTwd: 5000,
     });
   });
@@ -128,6 +134,7 @@ describe("calculatePnl", () => {
           fxRate: 1,
         },
       ],
+      [],
       { "2330": 580 },
       { TW: 1, US: 1 },
     );
@@ -150,6 +157,7 @@ describe("calculatePnl", () => {
       unrealizedPnlOriginal: 4500,
       marketValueTwd: 87000,
       allocationPercent: 100,
+      dividendTwd: 0,
     });
     expect(report.byStock[0].returnRatePercent).toBeCloseTo(
       14.545454545454545,
@@ -158,6 +166,7 @@ describe("calculatePnl", () => {
     expect(report.overview).toEqual({
       realizedPnlTwd: 7500,
       unrealizedPnlTwd: 4500,
+      dividendTwd: 0,
       totalPnlTwd: 12000,
     });
   });
@@ -184,6 +193,7 @@ describe("calculatePnl", () => {
           fxRate: 32,
         },
       ],
+      [],
       { AAPL: 165 },
       { TW: 1, US: 32.5 },
     );
@@ -211,11 +221,13 @@ describe("calculatePnl", () => {
         marketValueTwd: null,
         returnRatePercent: null,
         allocationPercent: null,
+        dividendTwd: 0,
       },
     ]);
     expect(report.overview).toEqual({
       realizedPnlTwd: 3950,
       unrealizedPnlTwd: 0,
+      dividendTwd: 0,
       totalPnlTwd: 3950,
     });
   });
@@ -242,6 +254,7 @@ describe("calculatePnl", () => {
           fxRate: 1,
         },
       ],
+      [],
       { "2330": 600, "2454": 1100 },
       { TW: 1, US: 1 },
     );
@@ -279,6 +292,7 @@ describe("calculatePnl", () => {
           fxRate: 1,
         },
       ],
+      [],
       { "2330": 600 }, // 2454's live price could not be fetched
       { TW: 1, US: 1 },
     );
@@ -295,5 +309,153 @@ describe("calculatePnl", () => {
     // gain/loss) rather than reflect it — so it must be null, not a
     // misleadingly-computed number, and excluded from the Return Rate chart.
     expect(bySymbol["2454"].returnRatePercent).toBeNull();
+  });
+
+  test("a single dividend record contributes to dividendTwd, totalPnlTwd, and returnRatePercent", () => {
+    const report = calculatePnl(
+      [
+        {
+          tradeDate: "2026-01-01",
+          market: "TW",
+          symbol: "2330",
+          side: "BUY",
+          quantity: 100,
+          price: 500,
+          fxRate: 1,
+        },
+      ],
+      [{ symbol: "2330", market: "TW", amount: 1000, fxRate: 1 }],
+      { "2330": 600 },
+      { TW: 1, US: 1 },
+    );
+
+    const [stock] = report.byStock;
+    // Without the dividend: totalPnlTwd would be 10000 (unrealized only),
+    // returnRatePercent would be 20. With a 1000 TWD dividend: 11000 / 11%
+    // higher denominator-relative return.
+    expect(stock.dividendTwd).toBe(1000);
+    expect(stock.totalPnlTwd).toBe(11000);
+    expect(stock.returnRatePercent).toBeCloseTo(22, 9);
+    expect(report.overview.dividendTwd).toBe(1000);
+    expect(report.overview.totalPnlTwd).toBe(11000);
+  });
+
+  test("multiple dividend records for the same symbol sum together", () => {
+    const report = calculatePnl(
+      [
+        {
+          tradeDate: "2026-01-01",
+          market: "TW",
+          symbol: "2330",
+          side: "BUY",
+          quantity: 100,
+          price: 500,
+          fxRate: 1,
+        },
+      ],
+      [
+        { symbol: "2330", market: "TW", amount: 1000, fxRate: 1 },
+        { symbol: "2330", market: "TW", amount: 500, fxRate: 1 },
+      ],
+      { "2330": 600 },
+      { TW: 1, US: 1 },
+    );
+
+    expect(report.byStock[0].dividendTwd).toBe(1500);
+  });
+
+  test("a stock with no dividend records has dividendTwd of 0", () => {
+    const report = calculatePnl(
+      [
+        {
+          tradeDate: "2026-01-01",
+          market: "TW",
+          symbol: "2330",
+          side: "BUY",
+          quantity: 100,
+          price: 500,
+          fxRate: 1,
+        },
+      ],
+      [],
+      { "2330": 600 },
+      { TW: 1, US: 1 },
+    );
+
+    expect(report.byStock[0].dividendTwd).toBe(0);
+  });
+
+  test("a closed holding's historical dividend income still shows, even though returnRatePercent stays null", () => {
+    const report = calculatePnl(
+      [
+        {
+          tradeDate: "2026-01-01",
+          market: "TW",
+          symbol: "2330",
+          side: "BUY",
+          quantity: 100,
+          price: 500,
+          fxRate: 1,
+        },
+        {
+          tradeDate: "2026-02-01",
+          market: "TW",
+          symbol: "2330",
+          side: "SELL",
+          quantity: 100,
+          price: 550,
+          fxRate: 1,
+        },
+      ],
+      [{ symbol: "2330", market: "TW", amount: 1000, fxRate: 1 }],
+      { "2330": 600 },
+      { TW: 1, US: 1 },
+    );
+
+    const [stock] = report.byStock;
+    expect(stock.quantityHeld).toBe(0);
+    expect(stock.dividendTwd).toBe(1000);
+    expect(stock.totalPnlTwd).toBe(6000); // 5000 realized + 1000 dividend
+    expect(stock.returnRatePercent).toBeNull();
+  });
+
+  test("overview.dividendTwd and overview.totalPnlTwd sum dividends across multiple stocks", () => {
+    const report = calculatePnl(
+      [
+        {
+          tradeDate: "2026-01-01",
+          market: "TW",
+          symbol: "2330",
+          side: "BUY",
+          quantity: 100,
+          price: 500,
+          fxRate: 1,
+        },
+        {
+          tradeDate: "2026-01-01",
+          market: "TW",
+          symbol: "2454",
+          side: "BUY",
+          quantity: 50,
+          price: 1000,
+          fxRate: 1,
+        },
+      ],
+      [
+        { symbol: "2330", market: "TW", amount: 1000, fxRate: 1 },
+        { symbol: "2454", market: "TW", amount: 2000, fxRate: 1 },
+      ],
+      { "2330": 600, "2454": 1100 },
+      { TW: 1, US: 1 },
+    );
+
+    // 2330: unrealized (600-500)*100 = 10000, dividend 1000 -> total 11000.
+    // 2454: unrealized (1100-1000)*50 = 5000, dividend 2000 -> total 7000.
+    expect(report.overview).toEqual({
+      realizedPnlTwd: 0,
+      unrealizedPnlTwd: 15000,
+      dividendTwd: 3000,
+      totalPnlTwd: 18000,
+    });
   });
 });

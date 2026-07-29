@@ -14,6 +14,13 @@ export interface PnlTransaction extends TransactionInput {
   fxRate: number;
 }
 
+export interface PnlDividend {
+  symbol: string;
+  market: Market;
+  amount: number;
+  fxRate: number;
+}
+
 export interface StockPnl {
   symbol: string;
   market: Market;
@@ -34,11 +41,17 @@ export interface StockPnl {
   marketValueTwd: number | null;
   returnRatePercent: number | null;
   allocationPercent: number | null;
+  // Total dividend income received for this symbol, in TWD. Always a
+  // number (0 when there's none) — unlike the fields above, it doesn't
+  // depend on live market data, and a closed holding keeps its historical
+  // total.
+  dividendTwd: number;
 }
 
 export interface PnlOverview {
   realizedPnlTwd: number;
   unrealizedPnlTwd: number;
+  dividendTwd: number;
   totalPnlTwd: number;
 }
 
@@ -49,6 +62,7 @@ export interface PnlReport {
 
 export function calculatePnl(
   transactions: PnlTransaction[],
+  dividends: PnlDividend[],
   currentPrices: Partial<Record<string, number>>,
   currentFxRates: Partial<Record<Market, number>>,
 ): PnlReport {
@@ -57,6 +71,14 @@ export function calculatePnl(
     const list = bySymbol.get(t.symbol) ?? [];
     list.push(t);
     bySymbol.set(t.symbol, list);
+  }
+
+  const dividendTwdBySymbol = new Map<string, number>();
+  for (const d of dividends) {
+    dividendTwdBySymbol.set(
+      d.symbol,
+      (dividendTwdBySymbol.get(d.symbol) ?? 0) + d.amount * d.fxRate,
+    );
   }
 
   const byStock: StockPnl[] = [];
@@ -111,7 +133,8 @@ export function calculatePnl(
         ? (currentPriceOriginal - avgCostOriginal) * quantityHeld
         : 0;
 
-    const totalPnlTwd = realizedPnlTwd + unrealizedPnlTwd;
+    const dividendTwd = dividendTwdBySymbol.get(symbol) ?? 0;
+    const totalPnlTwd = realizedPnlTwd + unrealizedPnlTwd + dividendTwd;
 
     // An open position (quantityHeld > 0) needs a current price and FX rate to
     // have a *complete* P&L — without them, totalPnlTwd silently falls back
@@ -147,6 +170,7 @@ export function calculatePnl(
       marketValueTwd,
       returnRatePercent,
       allocationPercent: null, // filled in below, once every holding's market value is known
+      dividendTwd,
     });
   }
 
@@ -166,9 +190,10 @@ export function calculatePnl(
     (acc, s) => ({
       realizedPnlTwd: acc.realizedPnlTwd + s.realizedPnlTwd,
       unrealizedPnlTwd: acc.unrealizedPnlTwd + s.unrealizedPnlTwd,
+      dividendTwd: acc.dividendTwd + s.dividendTwd,
       totalPnlTwd: acc.totalPnlTwd + s.totalPnlTwd,
     }),
-    { realizedPnlTwd: 0, unrealizedPnlTwd: 0, totalPnlTwd: 0 },
+    { realizedPnlTwd: 0, unrealizedPnlTwd: 0, dividendTwd: 0, totalPnlTwd: 0 },
   );
 
   return { overview, byStock };

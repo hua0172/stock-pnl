@@ -28,6 +28,10 @@ _Avoid_: booked P&L, closed P&L
 Paper profit or loss on a holding's remaining quantity, marked to the symbol's current price and the current USD/TWD rate: (current price × current FX rate − weighted-average cost per share) × quantity held. Recomputed every time the report is viewed.
 _Avoid_: paper P&L, open P&L
 
+**Total P&L** (總損益):
+A Holding's Realized P&L + Unrealized P&L + Dividend Income, added together. Realized and Unrealized P&L each keep their own precise, trading-only meaning — Dividend Income is a third, separate addend, never folded into either of them directly.
+_Avoid_: net P&L (ambiguous about whether dividends are included — always mean this specific sum)
+
 **FX Rate** (匯率):
 The TWD value of one unit of a transaction's original currency. Stored per-transaction at its own trade date (`1.0` for `TW` transactions). Because each transaction carries its own historical rate, FX movement between trades is folded into Realized/Unrealized P&L rather than tracked as a separate figure — see [ADR-0004](./docs/adr/0004-cost-basis-tracked-in-twd.md).
 _Avoid_: exchange rate, conversion rate
@@ -41,5 +45,9 @@ A Holding's current market value (quantity held × current price × current FX r
 _Avoid_: weight, position size
 
 **Audit Log Entry** (異動紀錄):
-An immutable, append-only record of a single create, edit, or delete performed on a Transaction — captures which action it was and the Transaction's full state before and after. Exists purely for the user's own review of what changed and when; never read by the P&L calculation, which always operates on the live Transaction table only. The action type is what distinguishes an original event (`CREATE`, a real trade) from a correction to one (`UPDATE`/`DELETE`, fixing the record of a trade that already happened, not a new one).
+An immutable, append-only record of a single create, edit, or delete performed on a Transaction or a Dividend — captures which action it was and the record's full state before and after. Exists purely for the user's own review of what changed and when; never read by the P&L calculation, which always operates on the live Transaction and Dividend tables only. The action type is what distinguishes an original event (`CREATE` — a real trade or a real dividend payment) from a correction to one (`UPDATE`/`DELETE`, fixing the record of something that already happened, not a new one). Transactions and Dividends each keep their own separate audit log table and history page — the concept is shared, the tables are not.
 _Avoid_: history, change log (too generic — always mean this specific append-only record)
+
+**Dividend** (股息):
+A single recorded cash payment received for holding a stock — market, symbol, payment date, and the after-tax amount actually deposited (no gross-up or withholding calculation). Converted to TWD using the historical FX rate at its own payment date, same as a Transaction. Contributes to a Holding's Dividend Income regardless of whether the Holding is still open or has since been fully closed.
+_Avoid_: distribution, payout (use Dividend consistently)
