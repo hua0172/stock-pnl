@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { fetchCurrentFxRate } from "@/lib/fx";
 import { MARKET_CURRENCY, MARKET_LABEL, MARKET_PRICE_PREFIX } from "@/lib/market";
-import { calculatePnl, type Market, type PnlTransaction, type Side, type StockPnl } from "@/lib/pnl";
+import { calculatePnl, type Market, type PnlDividend, type PnlTransaction, type Side, type StockPnl } from "@/lib/pnl";
 import { fetchCurrentPrice } from "@/lib/price";
 import { prisma } from "@/lib/prisma";
 import { ReportCharts } from "./report-charts";
@@ -49,6 +49,14 @@ export default async function ReportPage() {
     fxRate: r.fxRate,
   }));
 
+  const dividendRows = await prisma.dividend.findMany();
+  const dividends: PnlDividend[] = dividendRows.map((d) => ({
+    symbol: d.symbol,
+    market: d.market as Market,
+    amount: d.amount,
+    fxRate: d.fxRate,
+  }));
+
   const uniqueStocks = [
     ...new Map(transactions.map((t) => [t.symbol, t])).values(),
   ];
@@ -82,7 +90,7 @@ export default async function ReportPage() {
     }
   }
 
-  const report = calculatePnl(transactions, [], currentPrices, currentFxRates);
+  const report = calculatePnl(transactions, dividends, currentPrices, currentFxRates);
 
   return (
     <div className="flex flex-1 flex-col gap-8 bg-zinc-50 p-8 font-sans dark:bg-black">
@@ -109,6 +117,12 @@ export default async function ReportPage() {
           <Link href="/transactions/history" className="text-sm underline">
             異動紀錄
           </Link>
+          <Link href="/dividends" className="text-sm underline">
+            股息列表
+          </Link>
+          <Link href="/dividends/history" className="text-sm underline">
+            股息異動紀錄
+          </Link>
         </div>
       </header>
 
@@ -125,7 +139,7 @@ export default async function ReportPage() {
         </div>
       )}
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-900">
           <p className="text-sm text-zinc-500">已實現損益</p>
           <p className={`text-xl font-semibold ${pnlColor(report.overview.realizedPnlTwd)}`}>
@@ -136,6 +150,12 @@ export default async function ReportPage() {
           <p className="text-sm text-zinc-500">未實現損益</p>
           <p className={`text-xl font-semibold ${pnlColor(report.overview.unrealizedPnlTwd)}`}>
             {formatTwd(report.overview.unrealizedPnlTwd)}
+          </p>
+        </div>
+        <div className="rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-900">
+          <p className="text-sm text-zinc-500">股息收入</p>
+          <p className={`text-xl font-semibold ${pnlColor(report.overview.dividendTwd)}`}>
+            {formatTwd(report.overview.dividendTwd)}
           </p>
         </div>
         <div className="rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-900">
@@ -157,6 +177,7 @@ export default async function ReportPage() {
               <th className="p-3">目前股價</th>
               <th className="p-3">已實現</th>
               <th className="p-3">未實現</th>
+              <th className="p-3">股息</th>
               <th className="p-3">總計</th>
             </tr>
           </thead>
@@ -198,6 +219,9 @@ export default async function ReportPage() {
                     </span>
                   )}
                 </td>
+                <td className={`p-3 ${pnlColor(s.dividendTwd)}`}>
+                  {formatTwd(s.dividendTwd)}
+                </td>
                 <td className={`p-3 font-medium ${pnlColor(s.totalPnlTwd)}`}>
                   {formatTwd(s.totalPnlTwd)}
                   {originalRef(s, s.realizedPnlOriginal + s.unrealizedPnlOriginal) && (
@@ -210,7 +234,7 @@ export default async function ReportPage() {
             ))}
             {report.byStock.length === 0 && (
               <tr>
-                <td className="p-6 text-center text-zinc-500" colSpan={8}>
+                <td className="p-6 text-center text-zinc-500" colSpan={9}>
                   還沒有任何交易紀錄。
                   <Link href="/transactions/new" className="underline">
                     新增一筆
