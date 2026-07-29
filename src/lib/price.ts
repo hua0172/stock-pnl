@@ -1,4 +1,4 @@
-import { toYahooSymbol } from "./market";
+import { toYahooSymbolCandidates } from "./market";
 import type { Market } from "./pnl";
 import { fetchYahooChart } from "./yahoo";
 
@@ -6,12 +6,22 @@ export async function fetchCurrentPrice(
   market: Market,
   symbol: string,
 ): Promise<number> {
-  const result = await fetchYahooChart(toYahooSymbol(market, symbol), "1d");
-  const price = result.meta.regularMarketPrice;
+  const candidates = toYahooSymbolCandidates(market, symbol);
 
-  if (typeof price !== "number") {
-    throw new Error(`目前無法取得「${symbol}」的股價`);
+  let lastError: unknown;
+  for (const yahooSymbol of candidates) {
+    try {
+      const result = await fetchYahooChart(yahooSymbol, "1d");
+      const price = result.meta.regularMarketPrice;
+
+      if (typeof price === "number") {
+        return price;
+      }
+      lastError = new Error(`目前無法取得「${symbol}」的股價`);
+    } catch (err) {
+      lastError = err;
+    }
   }
 
-  return price;
+  throw lastError;
 }

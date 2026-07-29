@@ -16,6 +16,9 @@ export const MARKET_LABEL: Record<Market, string> = {
   US: "美股",
 };
 
-export function toYahooSymbol(market: Market, symbol: string): string {
-  return market === "TW" ? `${symbol}.TW` : symbol;
+// TW-listed securities trade on either the Taiwan Stock Exchange (Yahoo
+// suffix .TW) or the Taipei Exchange / TPEx (.TWO, e.g. many bond ETFs) —
+// there's no way to tell which from the symbol alone, so callers try both.
+export function toYahooSymbolCandidates(market: Market, symbol: string): string[] {
+  return market === "TW" ? [`${symbol}.TW`, `${symbol}.TWO`] : [symbol];
 }

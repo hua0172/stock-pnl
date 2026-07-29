@@ -141,6 +141,10 @@ export function ReportCharts({ byStock }: { byStock: StockPnl[] }) {
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v: number) => `${v}%`}
+                domain={[
+                  (min: number) => Math.floor(min - Math.max(Math.abs(min) * 0.15, 4)),
+                  (max: number) => Math.ceil(max + Math.max(Math.abs(max) * 0.15, 4)),
+                ]}
               />
               <Tooltip
                 formatter={(v) => [formatPercent(v), "報酬率"]}
