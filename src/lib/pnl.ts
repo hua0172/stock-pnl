@@ -14,6 +14,15 @@ export interface PnlTransaction extends TransactionInput {
   fxRate: number;
 }
 
+export interface DividendInput {
+  paymentDate: string;
+  market: Market;
+  symbol: string;
+  amount: number;
+}
+
+// calculatePnl only needs enough to aggregate by symbol — no paymentDate,
+// since (unlike weighted-average cost) dividend totals don't depend on order.
 export interface PnlDividend {
   symbol: string;
   market: Market;

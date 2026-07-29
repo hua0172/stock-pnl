@@ -26,7 +26,7 @@ export interface DescribedAuditEntry {
 
 const SIDE_LABEL: Record<Side, string> = { BUY: "買進", SELL: "賣出" };
 
-const ACTION_LABEL: Record<AuditAction, string> = {
+export const ACTION_LABEL: Record<AuditAction, string> = {
   CREATE: "新增",
   UPDATE: "編輯",
   DELETE: "刪除",

@@ -55,3 +55,28 @@ model TransactionAuditLog {
 
   @@index([createdAt])
 }
+
+model Dividend {
+  id          String   @id @default(cuid())
+  market      Market
+  symbol      String
+  paymentDate DateTime
+  amount      Float
+  fxRate      Float
+  createdAt   DateTime @default(now())
+
+  @@index([symbol])
+}
+
+// Append-only, mirroring TransactionAuditLog — kept as its own table and
+// history page rather than merged with the transaction audit log.
+model DividendAuditLog {
+  id         String      @id @default(cuid())
+  action     AuditAction
+  dividendId String
+  before     Json?
+  after      Json?
+  createdAt  DateTime    @default(now())
+
+  @@index([createdAt])
+}
