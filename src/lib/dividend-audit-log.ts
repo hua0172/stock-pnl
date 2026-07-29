@@ -1,4 +1,4 @@
-import { ACTION_LABEL, type AuditAction } from "./audit-log";
+import { ACTION_LABEL, describeFieldChanges, type AuditAction } from "./audit-log";
 import { MARKET_LABEL } from "./market";
 import type { Market } from "./pnl";
 
@@ -40,15 +40,7 @@ function fieldValueLabel(field: keyof DividendSnapshot, value: unknown): string 
 }
 
 function describeChanges(before: DividendSnapshot, after: DividendSnapshot): string {
-  const fields = Object.keys(FIELD_LABEL) as (keyof DividendSnapshot)[];
-  const changes = fields
-    .filter((field) => before[field] !== after[field])
-    .map(
-      (field) =>
-        `${FIELD_LABEL[field]}：${fieldValueLabel(field, before[field])} → ${fieldValueLabel(field, after[field])}`,
-    );
-
-  return changes.join("、");
+  return describeFieldChanges(before, after, FIELD_LABEL, fieldValueLabel);
 }
 
 export function describeDividendAuditEntry(

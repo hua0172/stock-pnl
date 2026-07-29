@@ -32,6 +32,25 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   DELETE: "刪除",
 };
 
+// Shared by any snapshot-diffing audit entry (transactions, dividends, ...):
+// lists every field that changed as "label：before → after", joined by "、".
+export function describeFieldChanges<T extends object>(
+  before: T,
+  after: T,
+  fieldLabels: Record<keyof T, string>,
+  formatValue: (field: keyof T, value: unknown) => string,
+): string {
+  const fields = Object.keys(fieldLabels) as (keyof T)[];
+  const changes = fields
+    .filter((field) => before[field] !== after[field])
+    .map(
+      (field) =>
+        `${fieldLabels[field]}：${formatValue(field, before[field])} → ${formatValue(field, after[field])}`,
+    );
+
+  return changes.join("、");
+}
+
 const FIELD_LABEL: Record<keyof TransactionSnapshot, string> = {
   tradeDate: "交易日期",
   market: "市場",
@@ -57,15 +76,7 @@ function describeChanges(
   before: TransactionSnapshot,
   after: TransactionSnapshot,
 ): string {
-  const fields = Object.keys(FIELD_LABEL) as (keyof TransactionSnapshot)[];
-  const changes = fields
-    .filter((field) => before[field] !== after[field])
-    .map(
-      (field) =>
-        `${FIELD_LABEL[field]}：${fieldValueLabel(field, before[field])} → ${fieldValueLabel(field, after[field])}`,
-    );
-
-  return changes.join("、");
+  return describeFieldChanges(before, after, FIELD_LABEL, fieldValueLabel);
 }
 
 export function describeAuditEntry(entry: AuditEntryInput): DescribedAuditEntry {
