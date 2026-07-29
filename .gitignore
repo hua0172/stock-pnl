@@ -51,3 +51,7 @@ next-env.d.ts
 /.agents/skills
 /.windsurf/skills
 skills-lock.json
+
+# launchd auto-start logs (see ~/Library/LaunchAgents/com.stockpnl.dev.plist)
+.launchd-stdout.log
+.launchd-stderr.log
