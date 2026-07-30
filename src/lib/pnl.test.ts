@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { calculatePnl } from "./pnl";
+import {
+  calculatePnl,
+  compareTransactionsChronologically,
+  findOversellViolation,
+} from "./pnl";
 
 describe("calculatePnl", () => {
   test("a single buy with no sell is entirely unrealized P&L", () => {
@@ -541,5 +545,97 @@ describe("calculatePnl", () => {
       dividendTwd: 1000,
       totalPnlTwd: 1000,
     });
+  });
+});
+
+describe("compareTransactionsChronologically", () => {
+  test("different dates sort by date regardless of side", () => {
+    const later = { tradeDate: "2026-02-01", side: "BUY" as const };
+    const earlier = { tradeDate: "2026-01-01", side: "SELL" as const };
+
+    expect([later, earlier].sort(compareTransactionsChronologically)).toEqual([
+      earlier,
+      later,
+    ]);
+  });
+
+  test("same date sorts BUY before SELL", () => {
+    const sell = { tradeDate: "2026-01-01", side: "SELL" as const };
+    const buy = { tradeDate: "2026-01-01", side: "BUY" as const };
+
+    expect([sell, buy].sort(compareTransactionsChronologically)).toEqual([
+      buy,
+      sell,
+    ]);
+  });
+
+  test("same date and same side preserves existing relative order", () => {
+    const first = { tradeDate: "2026-01-01", side: "BUY" as const, tag: "first" };
+    const second = { tradeDate: "2026-01-01", side: "BUY" as const, tag: "second" };
+
+    expect([first, second].sort(compareTransactionsChronologically)).toEqual([
+      first,
+      second,
+    ]);
+  });
+});
+
+describe("findOversellViolation", () => {
+  test("returns null when sells never exceed cumulative prior buys", () => {
+    const violation = findOversellViolation([
+      { tradeDate: "2026-01-01", market: "TW", symbol: "2330", side: "BUY", quantity: 100, price: 500 },
+      { tradeDate: "2026-02-01", market: "TW", symbol: "2330", side: "SELL", quantity: 50, price: 550 },
+    ]);
+
+    expect(violation).toBeNull();
+  });
+
+  test("detects a sell that exceeds holdings at that point, reporting symbol/date/quantities", () => {
+    const violation = findOversellViolation([
+      { tradeDate: "2026-01-01", market: "TW", symbol: "2330", side: "BUY", quantity: 100, price: 500 },
+      { tradeDate: "2026-02-01", market: "TW", symbol: "2330", side: "SELL", quantity: 150, price: 550 },
+    ]);
+
+    expect(violation).toEqual({
+      symbol: "2330",
+      tradeDate: "2026-02-01",
+      availableQuantity: 100,
+      attemptedQuantity: 150,
+    });
+  });
+
+  test("a same-day buy-then-sell is valid regardless of input array order", () => {
+    const buy = { tradeDate: "2026-01-01", market: "TW" as const, symbol: "2330", side: "BUY" as const, quantity: 100, price: 500 };
+    const sell = { tradeDate: "2026-01-01", market: "TW" as const, symbol: "2330", side: "SELL" as const, quantity: 100, price: 550 };
+
+    expect(findOversellViolation([sell, buy])).toBeNull();
+    expect(findOversellViolation([buy, sell])).toBeNull();
+  });
+
+  test("checks each symbol independently — a violation in one doesn't affect another", () => {
+    const violation = findOversellViolation([
+      { tradeDate: "2026-01-01", market: "TW", symbol: "2330", side: "BUY", quantity: 100, price: 500 },
+      { tradeDate: "2026-02-01", market: "TW", symbol: "2330", side: "SELL", quantity: 50, price: 550 },
+      { tradeDate: "2026-01-01", market: "TW", symbol: "2454", side: "BUY", quantity: 20, price: 1000 },
+      { tradeDate: "2026-02-01", market: "TW", symbol: "2454", side: "SELL", quantity: 30, price: 1100 },
+    ]);
+
+    expect(violation).toEqual({
+      symbol: "2454",
+      tradeDate: "2026-02-01",
+      availableQuantity: 20,
+      attemptedQuantity: 30,
+    });
+  });
+
+  test("a fully valid multi-transaction sequence returns null", () => {
+    const violation = findOversellViolation([
+      { tradeDate: "2026-01-01", market: "TW", symbol: "2330", side: "BUY", quantity: 100, price: 500 },
+      { tradeDate: "2026-01-15", market: "TW", symbol: "2330", side: "BUY", quantity: 100, price: 600 },
+      { tradeDate: "2026-02-01", market: "TW", symbol: "2330", side: "SELL", quantity: 150, price: 700 },
+      { tradeDate: "2026-03-01", market: "TW", symbol: "2330", side: "SELL", quantity: 50, price: 650 },
+    ]);
+
+    expect(violation).toBeNull();
   });
 });

@@ -74,18 +74,80 @@ export interface PnlReport {
   byStock: StockPnl[];
 }
 
+// Shared by calculatePnl and findOversellViolation — both need "this
+// symbol's transactions, in the order they were passed in" before sorting
+// each group chronologically.
+function groupBySymbol<T extends { symbol: string }>(transactions: T[]): Map<string, T[]> {
+  const bySymbol = new Map<string, T[]>();
+  for (const t of transactions) {
+    const list = bySymbol.get(t.symbol) ?? [];
+    list.push(t);
+    bySymbol.set(t.symbol, list);
+  }
+  return bySymbol;
+}
+
+// Shared by calculatePnl and findOversellViolation so the two never disagree
+// about what order same-day transactions happened in. Same-day BUYs sort
+// before same-day SELLs — there's no recorded time-of-day, and this is the
+// only ordering assumption that doesn't misflag a same-day buy-then-sell.
+export function compareTransactionsChronologically(
+  a: { tradeDate: string; side: Side },
+  b: { tradeDate: string; side: Side },
+): number {
+  const dateComparison = a.tradeDate.localeCompare(b.tradeDate);
+  if (dateComparison !== 0) return dateComparison;
+  if (a.side === b.side) return 0;
+  return a.side === "BUY" ? -1 : 1;
+}
+
+export interface OversellViolation {
+  symbol: string;
+  tradeDate: string;
+  availableQuantity: number;
+  attemptedQuantity: number;
+}
+
+// Replays a SELL-quantity check across a symbol's full chronological history
+// (not just today's total holding), so a backdated SELL that would have been
+// invalid at the time it's dated is still caught. Returns the first violation
+// found (by symbol insertion order, not necessarily the globally earliest
+// one across symbols), or null if the whole input is valid throughout.
+export function findOversellViolation(
+  transactions: TransactionInput[],
+): OversellViolation | null {
+  const bySymbol = groupBySymbol(transactions);
+
+  for (const [symbol, txs] of bySymbol) {
+    const sorted = [...txs].sort(compareTransactionsChronologically);
+    let quantityHeld = 0;
+
+    for (const t of sorted) {
+      if (t.side === "BUY") {
+        quantityHeld += t.quantity;
+      } else if (t.quantity > quantityHeld) {
+        return {
+          symbol,
+          tradeDate: t.tradeDate,
+          availableQuantity: quantityHeld,
+          attemptedQuantity: t.quantity,
+        };
+      } else {
+        quantityHeld -= t.quantity;
+      }
+    }
+  }
+
+  return null;
+}
+
 export function calculatePnl(
   transactions: PnlTransaction[],
   dividends: PnlDividend[],
   currentPrices: Partial<Record<string, number>>,
   currentFxRates: Partial<Record<Market, number>>,
 ): PnlReport {
-  const bySymbol = new Map<string, PnlTransaction[]>();
-  for (const t of transactions) {
-    const list = bySymbol.get(t.symbol) ?? [];
-    list.push(t);
-    bySymbol.set(t.symbol, list);
-  }
+  const bySymbol = groupBySymbol(transactions);
 
   const dividendTwdBySymbol = new Map<string, number>();
   const dividendMarketBySymbol = new Map<string, Market>();
@@ -99,9 +161,7 @@ export function calculatePnl(
 
   const byStock: StockPnl[] = [];
   for (const [symbol, txs] of bySymbol) {
-    const sorted = [...txs].sort((a, b) =>
-      a.tradeDate.localeCompare(b.tradeDate),
-    );
+    const sorted = [...txs].sort(compareTransactionsChronologically);
     const market = sorted[0].market;
 
     let quantityHeld = 0;
