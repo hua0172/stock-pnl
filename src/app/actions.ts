@@ -7,7 +7,13 @@ import type { TransactionSnapshot } from "@/lib/audit-log";
 import { parseTransactionsCsv, type CsvParseError } from "@/lib/csv";
 import { fetchHistoricalFxRate } from "@/lib/fx";
 import { MARKET_CURRENCY } from "@/lib/market";
-import type { Market, Side, TransactionInput } from "@/lib/pnl";
+import {
+  findOversellViolation,
+  type Market,
+  type OversellViolation,
+  type Side,
+  type TransactionInput,
+} from "@/lib/pnl";
 import { prisma } from "@/lib/prisma";
 import {
   validateTransactionInput,
@@ -39,6 +45,25 @@ function parseTransactionFormData(formData: FormData): RawTransactionInput {
 
 function formatFxRateError(err: unknown): string {
   return `無法取得此交易日期的匯率：${(err as Error).message}`;
+}
+
+function formatOversellError(violation: OversellViolation): string {
+  return `股數不足：${violation.tradeDate} 當下持有 ${violation.availableQuantity} 股，無法賣出 ${violation.attemptedQuantity} 股`;
+}
+
+function formatDeleteOversellError(violation: OversellViolation): string {
+  return `無法刪除：刪除後，${violation.tradeDate} 的賣出交易將變成超賣（當下僅剩 ${violation.availableQuantity} 股，但那筆賣出了 ${violation.attemptedQuantity} 股）`;
+}
+
+async function existingTransactionInputsForSymbol(
+  symbol: string,
+  excludeId?: string,
+): Promise<TransactionInput[]> {
+  const rows = await prisma.transaction.findMany({
+    where: excludeId ? { symbol, id: { not: excludeId } } : { symbol },
+  });
+
+  return rows.map(snapshotFromRecord);
 }
 
 async function findExistingTransaction(
@@ -106,6 +131,12 @@ export async function addTransaction(
     return { error: validated.error };
   }
 
+  const existing = await existingTransactionInputsForSymbol(validated.value.symbol);
+  const violation = findOversellViolation([...existing, validated.value]);
+  if (violation) {
+    return { error: formatOversellError(violation) };
+  }
+
   try {
     await createTransaction(validated.value);
   } catch (err) {
@@ -136,11 +167,30 @@ export async function importTransactionsCsv(
   const { transactions, errors } = parseTransactionsCsv(text);
   const importErrors: CsvParseError[] = [...errors];
 
+  // Running per-symbol transaction list, seeded from the DB and updated as
+  // each row in this batch is actually inserted — so a later row is checked
+  // against both existing data and earlier rows from the same file.
+  const runningBySymbol = new Map<string, TransactionInput[]>();
+  for (const symbol of new Set(transactions.map((t) => t.symbol))) {
+    runningBySymbol.set(symbol, await existingTransactionInputsForSymbol(symbol));
+  }
+
   let createdCount = 0;
   for (const t of transactions) {
+    const existingForSymbol = runningBySymbol.get(t.symbol) ?? [];
+    const violation = findOversellViolation([...existingForSymbol, t]);
+    if (violation) {
+      importErrors.push({
+        row: 0,
+        message: `匯入失敗（${t.symbol}，${t.tradeDate}）：股數不足，當下持有 ${violation.availableQuantity} 股，無法賣出 ${violation.attemptedQuantity} 股`,
+      });
+      continue;
+    }
+
     try {
       await createTransaction(t);
       createdCount++;
+      runningBySymbol.set(t.symbol, [...existingForSymbol, t]);
     } catch (err) {
       importErrors.push({
         row: 0,
@@ -171,6 +221,30 @@ export async function updateTransaction(
   }
 
   const { before } = found;
+
+  const existingForNewSymbol = await existingTransactionInputsForSymbol(
+    validated.value.symbol,
+    id,
+  );
+  const violation = findOversellViolation([...existingForNewSymbol, validated.value]);
+  if (violation) {
+    return { error: formatOversellError(violation) };
+  }
+
+  // Changing which symbol this transaction belongs to is, from the
+  // original symbol's perspective, equivalent to deleting it — its
+  // remaining transactions must still be a valid sequence on their own.
+  if (before.symbol !== validated.value.symbol) {
+    const remainingForOldSymbol = await existingTransactionInputsForSymbol(
+      before.symbol,
+      id,
+    );
+    const oldSymbolViolation = findOversellViolation(remainingForOldSymbol);
+    if (oldSymbolViolation) {
+      return { error: formatOversellError(oldSymbolViolation) };
+    }
+  }
+
   const dateOrMarketChanged =
     before.tradeDate !== validated.value.tradeDate || before.market !== validated.value.market;
 
@@ -224,6 +298,12 @@ export async function deleteTransaction(id: string): Promise<ActionResult> {
   }
 
   const { before } = found;
+
+  const remaining = await existingTransactionInputsForSymbol(before.symbol, id);
+  const violation = findOversellViolation(remaining);
+  if (violation) {
+    return { error: formatDeleteOversellError(violation) };
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.transaction.delete({ where: { id } });

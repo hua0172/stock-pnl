@@ -14,7 +14,11 @@ export function DeleteTransactionButton({ id }: { id: string }) {
     }
 
     startTransition(async () => {
-      await deleteTransaction(id);
+      const result = await deleteTransaction(id);
+      if (result.error) {
+        window.alert(result.error);
+        return;
+      }
       router.refresh();
     });
   }
