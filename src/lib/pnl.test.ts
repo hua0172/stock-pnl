@@ -352,7 +352,7 @@ describe("calculatePnl", () => {
     expect(bySymbol["2454"].returnRatePercent).toBeNull();
   });
 
-  test("a single dividend record contributes to dividendTwd, totalPnlTwd, and returnRatePercent", () => {
+  test("a single dividend record contributes to dividendTwd and totalPnlTwd, but not returnRatePercent", () => {
     const report = calculatePnl(
       [
         {
@@ -371,12 +371,14 @@ describe("calculatePnl", () => {
     );
 
     const [stock] = report.byStock;
-    // Without the dividend: totalPnlTwd would be 10000 (unrealized only),
-    // returnRatePercent would be 20. With a 1000 TWD dividend: 11000 / 11%
-    // higher denominator-relative return.
+    // Total P&L folds the 1000 TWD dividend in (10000 unrealized + 1000 =
+    // 11000), but returnRatePercent deliberately excludes dividends — it's
+    // (realized + unrealized) ÷ cost only, i.e. 10000/50000*100 = 20, not
+    // 22 — dividend income is already visible via Total P&L and doesn't
+    // need to be double-counted into this percentage too.
     expect(stock.dividendTwd).toBe(1000);
     expect(stock.totalPnlTwd).toBe(11000);
-    expect(stock.returnRatePercent).toBeCloseTo(22, 9);
+    expect(stock.returnRatePercent).toBeCloseTo(20, 9);
     expect(report.overview.dividendTwd).toBe(1000);
     expect(report.overview.totalPnlTwd).toBe(11000);
   });

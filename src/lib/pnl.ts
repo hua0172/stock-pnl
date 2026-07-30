@@ -171,9 +171,14 @@ export function calculatePnl(
         ? currentPriceOriginal * currentFxRate * quantityHeld
         : null;
 
+    // Deliberately realizedPnlTwd + unrealizedPnlTwd, not totalPnlTwd —
+    // Return Rate reflects price performance only. Dividend income is
+    // already visible via Total P&L and dividendTwd; folding it in here
+    // too would double-count it into a percentage meant to answer "how did
+    // the stock itself do," not "how much did holding it earn me overall."
     const returnRatePercent =
       quantityHeld > 0 && hasCompleteMarketData
-        ? (totalPnlTwd / (avgCostTwd * quantityHeld)) * 100
+        ? ((realizedPnlTwd + unrealizedPnlTwd) / (avgCostTwd * quantityHeld)) * 100
         : null;
 
     byStock.push({

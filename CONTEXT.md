@@ -41,7 +41,7 @@ The TWD value of one unit of a transaction's original currency. Stored per-trans
 _Avoid_: exchange rate, conversion rate
 
 **Return Rate** (報酬率):
-A holding's Total P&L expressed as a percentage of its cost: Total P&L ÷ (Weighted-Average Cost × quantity held). Undefined (`null`, not zero — and excluded from the Return Rate chart) for a closed Holding (zero quantity held) or an open Holding missing a current price or FX rate, since Total P&L itself is incomplete without one.
+A holding's Realized P&L + Unrealized P&L expressed as a percentage of its cost: (Realized P&L + Unrealized P&L) ÷ (Weighted-Average Cost × quantity held) — deliberately excludes Dividend Income, reflecting price performance only. Dividend Income is already visible via Total P&L and the dedicated Dividend Income figure; this ratio isn't meant to double-count it. Undefined (`null`, not zero — and excluded from the Return Rate chart) for a closed Holding (zero quantity held) or an open Holding missing a current price or FX rate, since Realized/Unrealized P&L itself is incomplete without one. See [ADR-0008](./docs/adr/0008-return-rate-excludes-dividends.md) for why this reverses an earlier decision.
 _Avoid_: yield, performance (too vague — always mean this specific ratio)
 
 **Holding Allocation** (持股占比):
