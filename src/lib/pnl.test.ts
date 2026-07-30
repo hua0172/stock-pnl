@@ -638,4 +638,19 @@ describe("findOversellViolation", () => {
 
     expect(violation).toBeNull();
   });
+
+  test("a full-position sell isn't blocked by floating-point accumulation error", () => {
+    // 0.1 + 0.7 accumulates to 0.7999999999999999 in IEEE-754, not exactly
+    // 0.8 — a strict > comparison would reject selling "everything" here
+    // even though nothing was actually oversold.
+    expect(0.1 + 0.7).not.toBe(0.8);
+
+    const violation = findOversellViolation([
+      { tradeDate: "2026-01-01", market: "US", symbol: "VOO", side: "BUY", quantity: 0.1, price: 600 },
+      { tradeDate: "2026-01-02", market: "US", symbol: "VOO", side: "BUY", quantity: 0.7, price: 610 },
+      { tradeDate: "2026-02-01", market: "US", symbol: "VOO", side: "SELL", quantity: 0.8, price: 650 },
+    ]);
+
+    expect(violation).toBeNull();
+  });
 });

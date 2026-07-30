@@ -108,11 +108,29 @@ export interface OversellViolation {
   attemptedQuantity: number;
 }
 
+// Quantities are floating-point and this app supports fractional shares, so
+// a running sum of several BUYs can land a hair off the "true" total (e.g.
+// 0.1 + 0.7 === 0.7999999999999999). Without this tolerance, selling exactly
+// everything you hold could be misflagged as overselling by a fraction of a
+// share that was never actually there.
+const QUANTITY_EPSILON = 1e-9;
+
 // Replays a SELL-quantity check across a symbol's full chronological history
 // (not just today's total holding), so a backdated SELL that would have been
 // invalid at the time it's dated is still caught. Returns the first violation
 // found (by symbol insertion order, not necessarily the globally earliest
 // one across symbols), or null if the whole input is valid throughout.
+//
+// Known limitation, accepted for now: this validates the ENTIRE resulting
+// sequence, not just whether the specific write being attempted introduces a
+// NEW violation. If a symbol somehow already has an invalid sequence (e.g.
+// grandfathered from before this guard existed), every future add/edit/
+// delete for that symbol will be blocked too, even changes unrelated to the
+// pre-existing violation — contradicting the "this guard only applies to new
+// writes going forward" intent. Currently harmless (no real data has any
+// existing violation), but a real gap if that ever changes — fixing it would
+// mean comparing the sequence's validity before vs. after the write, not
+// just checking the "after" state in isolation.
 export function findOversellViolation(
   transactions: TransactionInput[],
 ): OversellViolation | null {
@@ -125,7 +143,7 @@ export function findOversellViolation(
     for (const t of sorted) {
       if (t.side === "BUY") {
         quantityHeld += t.quantity;
-      } else if (t.quantity > quantityHeld) {
+      } else if (t.quantity > quantityHeld + QUANTITY_EPSILON) {
         return {
           symbol,
           tradeDate: t.tradeDate,
