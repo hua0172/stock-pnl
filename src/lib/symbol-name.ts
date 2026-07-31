@@ -52,7 +52,7 @@ async function fetchJsonWithTimeout(url: string): Promise<unknown | null> {
 // single bulk fetch covers every TW symbol, rather than one call per symbol.
 // The two are independent, so fetch them in parallel rather than one after
 // the other, halving the worst-case wait.
-export async function fetchTwSymbolNames(): Promise<Map<string, string>> {
+async function fetchTwSymbolNamesUncached(): Promise<Map<string, string>> {
   const names = new Map<string, string>();
 
   const [twseData, tpexData] = await Promise.all([
@@ -75,6 +75,42 @@ export async function fetchTwSymbolNames(): Promise<Map<string, string>> {
   }
 
   return names;
+}
+
+// Company/fund names essentially never change, so re-downloading TWSE's
+// ~1400 rows and TPEx's ~1000 rows on every single page load is pure waste —
+// this is the dominant cost behind every page that displays a TW stock name.
+const TW_NAME_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+// Pure decision seam: is a cache entry recorded at `fetchedAt` still within
+// `ttlMs` of `now`? Exposed so it can be tested without the network layer.
+export function isCacheFresh(fetchedAt: number, ttlMs: number, now: number): boolean {
+  return now - fetchedAt < ttlMs;
+}
+
+let twNameCache: { names: Map<string, string>; fetchedAt: number } | null = null;
+
+// A single in-memory cache entry shared by every caller within this server
+// process (dev via the existing LaunchAgent, or a production process) —
+// deliberately a plain module-scoped variable rather than Next.js's fetch
+// cache, for predictable behavior. Fail-open: a refresh that comes back
+// empty (e.g. both TWSE and TPEx timed out) never overwrites a good cached
+// entry — it just keeps serving the stale-but-good data until a refresh
+// actually succeeds, matching the fail-open principle used throughout
+// symbol-existence.ts.
+export async function fetchTwSymbolNames(): Promise<Map<string, string>> {
+  if (twNameCache && isCacheFresh(twNameCache.fetchedAt, TW_NAME_CACHE_TTL_MS, Date.now())) {
+    return twNameCache.names;
+  }
+
+  const names = await fetchTwSymbolNamesUncached();
+
+  if (names.size > 0) {
+    twNameCache = { names, fetchedAt: Date.now() };
+    return names;
+  }
+
+  return twNameCache?.names ?? names;
 }
 
 export async function fetchUsSymbolName(symbol: string): Promise<string | null> {

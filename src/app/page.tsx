@@ -62,6 +62,13 @@ export default async function ReportPage() {
     ...new Map(transactions.map((t) => [t.symbol, t])).values(),
   ];
 
+  // Kicked off here, awaited only where it's actually needed below — this
+  // fetch is independent of the price/FX fetching that follows, so there's
+  // no reason to wait for that to finish first.
+  const symbolNamesPromise = fetchSymbolNames(
+    uniqueStocks.map((t) => ({ market: t.market, symbol: t.symbol })),
+  );
+
   const priceResults = await Promise.allSettled(
     uniqueStocks.map(async (t) => ({
       symbol: t.symbol,
@@ -93,9 +100,7 @@ export default async function ReportPage() {
 
   const report = calculatePnl(transactions, dividends, currentPrices, currentFxRates);
 
-  const symbolNames = await fetchSymbolNames(
-    uniqueStocks.map((t) => ({ market: t.market, symbol: t.symbol })),
-  );
+  const symbolNames = await symbolNamesPromise;
 
   return (
     <div className="flex flex-1 flex-col gap-8 bg-zinc-50 p-8 font-sans dark:bg-black">
