@@ -208,9 +208,15 @@ export function ReportCharts({
                 }}
               />
               <Legend
-                formatter={(value: string) => (
-                  <span style={{ color: theme.axisTextColor }}>{value}</span>
-                )}
+                formatter={(value: string, entry: { payload?: { value?: unknown } }) => {
+                  const percent = entry.payload?.value;
+                  return (
+                    <span style={{ color: theme.axisTextColor }}>
+                      {value}
+                      {percent !== undefined ? ` ${formatPercent(percent)}` : ""}
+                    </span>
+                  );
+                }}
               />
               <Pie
                 data={allocationData}
