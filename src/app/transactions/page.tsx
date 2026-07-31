@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MARKET_LABEL } from "@/lib/market";
 import type { Market, Side } from "@/lib/pnl";
 import { prisma } from "@/lib/prisma";
+import { fetchSymbolNames, formatSymbolLabel } from "@/lib/symbol-name";
 import { DeleteTransactionButton } from "./delete-button";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,13 @@ export default async function TransactionsPage() {
   const transactions = await prisma.transaction.findMany({
     orderBy: { tradeDate: "asc" },
   });
+
+  const uniqueSymbols = [
+    ...new Map(transactions.map((t) => [t.symbol, t])).values(),
+  ];
+  const symbolNames = await fetchSymbolNames(
+    uniqueSymbols.map((t) => ({ market: t.market as Market, symbol: t.symbol })),
+  );
 
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-50 p-8 font-sans dark:bg-black">
@@ -58,7 +66,9 @@ export default async function TransactionsPage() {
                   {t.tradeDate.toISOString().slice(0, 10)}
                 </td>
                 <td className="p-3">{MARKET_LABEL[t.market as Market]}</td>
-                <td className="p-3 font-medium">{t.symbol}</td>
+                <td className="p-3 font-medium">
+                  {formatSymbolLabel(t.symbol, symbolNames[t.symbol])}
+                </td>
                 <td className="p-3">{SIDE_LABEL[t.side as Side]}</td>
                 <td className="p-3">{t.quantity}</td>
                 <td className="p-3">{t.price}</td>
