@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { describeAuditEntry, type TransactionSnapshot } from "@/lib/audit-log";
+import type { Market } from "@/lib/pnl";
 import { prisma } from "@/lib/prisma";
+import { fetchSymbolNames } from "@/lib/symbol-name";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,15 @@ export default async function TransactionHistoryPage() {
   const entries = await prisma.transactionAuditLog.findMany({
     orderBy: { createdAt: "desc" },
   });
+
+  const symbolMarketPairs = new Map<string, { market: Market; symbol: string }>();
+  for (const entry of entries) {
+    for (const snapshot of [entry.before, entry.after]) {
+      const s = snapshot as TransactionSnapshot | null;
+      if (s) symbolMarketPairs.set(s.symbol, { market: s.market, symbol: s.symbol });
+    }
+  }
+  const symbolNames = await fetchSymbolNames([...symbolMarketPairs.values()]);
 
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-50 p-8 font-sans dark:bg-black">
@@ -43,11 +54,14 @@ export default async function TransactionHistoryPage() {
           </thead>
           <tbody>
             {entries.map((entry) => {
-              const described = describeAuditEntry({
-                action: entry.action,
-                before: entry.before as TransactionSnapshot | null,
-                after: entry.after as TransactionSnapshot | null,
-              });
+              const described = describeAuditEntry(
+                {
+                  action: entry.action,
+                  before: entry.before as TransactionSnapshot | null,
+                  after: entry.after as TransactionSnapshot | null,
+                },
+                symbolNames,
+              );
 
               return (
                 <tr

@@ -1,5 +1,6 @@
 import { MARKET_LABEL } from "./market";
 import type { Market, Side } from "./pnl";
+import { formatSymbolLabel } from "./symbol-name";
 
 export type AuditAction = "CREATE" | "UPDATE" | "DELETE";
 
@@ -61,13 +62,22 @@ const FIELD_LABEL: Record<keyof TransactionSnapshot, string> = {
   fxRate: "匯率",
 };
 
-function describeTransaction(snapshot: TransactionSnapshot): string {
-  return `${snapshot.symbol}（${MARKET_LABEL[snapshot.market]}），${SIDE_LABEL[snapshot.side]} ${snapshot.quantity} 股 @${snapshot.price}`;
+function describeTransaction(
+  snapshot: TransactionSnapshot,
+  names: Partial<Record<string, string>> | undefined,
+): string {
+  const symbolLabel = formatSymbolLabel(snapshot.symbol, names?.[snapshot.symbol]);
+  return `${symbolLabel}（${MARKET_LABEL[snapshot.market]}），${SIDE_LABEL[snapshot.side]} ${snapshot.quantity} 股 @${snapshot.price}`;
 }
 
-function fieldValueLabel(field: keyof TransactionSnapshot, value: unknown): string {
+function fieldValueLabel(
+  field: keyof TransactionSnapshot,
+  value: unknown,
+  names: Partial<Record<string, string>> | undefined,
+): string {
   if (field === "market") return MARKET_LABEL[value as Market];
   if (field === "side") return SIDE_LABEL[value as Side];
+  if (field === "symbol") return formatSymbolLabel(value as string, names?.[value as string]);
   if (typeof value === "number") return String(Number(value.toFixed(4)));
   return String(value);
 }
@@ -75,23 +85,29 @@ function fieldValueLabel(field: keyof TransactionSnapshot, value: unknown): stri
 function describeChanges(
   before: TransactionSnapshot,
   after: TransactionSnapshot,
+  names: Partial<Record<string, string>> | undefined,
 ): string {
-  return describeFieldChanges(before, after, FIELD_LABEL, fieldValueLabel);
+  return describeFieldChanges(before, after, FIELD_LABEL, (field, value) =>
+    fieldValueLabel(field, value, names),
+  );
 }
 
-export function describeAuditEntry(entry: AuditEntryInput): DescribedAuditEntry {
+export function describeAuditEntry(
+  entry: AuditEntryInput,
+  names?: Partial<Record<string, string>>,
+): DescribedAuditEntry {
   const actionLabel = ACTION_LABEL[entry.action];
 
   if (entry.action === "CREATE" && entry.after) {
-    return { actionLabel, summary: `新增交易：${describeTransaction(entry.after)}` };
+    return { actionLabel, summary: `新增交易：${describeTransaction(entry.after, names)}` };
   }
 
   if (entry.action === "DELETE" && entry.before) {
-    return { actionLabel, summary: `刪除交易：${describeTransaction(entry.before)}` };
+    return { actionLabel, summary: `刪除交易：${describeTransaction(entry.before, names)}` };
   }
 
   if (entry.action === "UPDATE" && entry.before && entry.after) {
-    return { actionLabel, summary: describeChanges(entry.before, entry.after) };
+    return { actionLabel, summary: describeChanges(entry.before, entry.after, names) };
   }
 
   return { actionLabel, summary: "" };

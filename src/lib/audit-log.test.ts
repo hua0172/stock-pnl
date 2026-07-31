@@ -112,4 +112,92 @@ describe("describeAuditEntry", () => {
       summary: "刪除交易：AAPL（美股），賣出 10 股 @160",
     });
   });
+
+  test("a CREATE entry includes the symbol's name when supplied", () => {
+    const result = describeAuditEntry(
+      {
+        action: "CREATE",
+        before: null,
+        after: {
+          tradeDate: "2026-01-01",
+          market: "TW",
+          symbol: "2330",
+          side: "BUY",
+          quantity: 100,
+          price: 500,
+          fxRate: 1,
+        },
+      },
+      { "2330": "台積電" },
+    );
+
+    expect(result).toEqual({
+      actionLabel: "新增",
+      summary: "新增交易：台積電（2330）（台股），買進 100 股 @500",
+    });
+  });
+
+  test("a DELETE entry includes the symbol's name when supplied", () => {
+    const result = describeAuditEntry(
+      {
+        action: "DELETE",
+        before: {
+          tradeDate: "2026-02-01",
+          market: "US",
+          symbol: "AAPL",
+          side: "SELL",
+          quantity: 10,
+          price: 160,
+          fxRate: 32,
+        },
+        after: null,
+      },
+      { AAPL: "Apple Inc." },
+    );
+
+    expect(result).toEqual({
+      actionLabel: "刪除",
+      summary: "刪除交易：Apple Inc.（AAPL）（美股），賣出 10 股 @160",
+    });
+  });
+
+  test("an UPDATE entry that changes the symbol itself formats both sides' names when supplied", () => {
+    const before = {
+      tradeDate: "2026-01-01",
+      market: "TW" as const,
+      symbol: "2330",
+      side: "BUY" as const,
+      quantity: 100,
+      price: 500,
+      fxRate: 1,
+    };
+
+    const result = describeAuditEntry(
+      { action: "UPDATE", before, after: { ...before, symbol: "2454" } },
+      { "2330": "台積電", "2454": "聯發科" },
+    );
+
+    expect(result).toEqual({
+      actionLabel: "編輯",
+      summary: "股票代號：台積電（2330） → 聯發科（2454）",
+    });
+  });
+
+  test("names are absent by default — existing callers unaffected", () => {
+    const result = describeAuditEntry({
+      action: "CREATE",
+      before: null,
+      after: {
+        tradeDate: "2026-01-01",
+        market: "TW",
+        symbol: "2330",
+        side: "BUY",
+        quantity: 100,
+        price: 500,
+        fxRate: 1,
+      },
+    });
+
+    expect(result.summary).toBe("新增交易：2330（台股），買進 100 股 @500");
+  });
 });
