@@ -3,6 +3,7 @@ import {
   calculatePnl,
   compareTransactionsChronologically,
   findOversellViolation,
+  quantityHeldAsOf,
 } from "./pnl";
 
 describe("calculatePnl", () => {
@@ -652,5 +653,56 @@ describe("findOversellViolation", () => {
     ]);
 
     expect(violation).toBeNull();
+  });
+});
+
+describe("quantityHeldAsOf", () => {
+  test("only counts transactions on or before the cutoff date", () => {
+    const held = quantityHeldAsOf(
+      [
+        { tradeDate: "2026-01-01", market: "TW", symbol: "2330", side: "BUY", quantity: 100, price: 500 },
+        { tradeDate: "2026-03-01", market: "TW", symbol: "2330", side: "BUY", quantity: 50, price: 520 },
+      ],
+      "2026-02-01",
+    );
+
+    expect(held).toBe(100);
+  });
+
+  test("a sell after the cutoff doesn't reduce the result", () => {
+    const held = quantityHeldAsOf(
+      [
+        { tradeDate: "2026-01-01", market: "TW", symbol: "2330", side: "BUY", quantity: 100, price: 500 },
+        { tradeDate: "2026-03-01", market: "TW", symbol: "2330", side: "SELL", quantity: 40, price: 550 },
+      ],
+      "2026-02-01",
+    );
+
+    expect(held).toBe(100);
+  });
+
+  test("a sell on or before the cutoff reduces the result", () => {
+    const held = quantityHeldAsOf(
+      [
+        { tradeDate: "2026-01-01", market: "TW", symbol: "2330", side: "BUY", quantity: 100, price: 500 },
+        { tradeDate: "2026-02-01", market: "TW", symbol: "2330", side: "SELL", quantity: 40, price: 550 },
+      ],
+      "2026-02-01",
+    );
+
+    expect(held).toBe(60);
+  });
+
+  test("a full sell down to zero is exact, tolerating floating-point noise", () => {
+    const held = quantityHeldAsOf(
+      [
+        { tradeDate: "2026-01-01", market: "US", symbol: "VOO", side: "BUY", quantity: 0.1, price: 600 },
+        { tradeDate: "2026-01-02", market: "US", symbol: "VOO", side: "BUY", quantity: 0.7, price: 610 },
+        { tradeDate: "2026-02-01", market: "US", symbol: "VOO", side: "SELL", quantity: 0.8, price: 650 },
+      ],
+      "2026-02-01",
+    );
+
+    expect(held).toBeCloseTo(0, 9);
   });
 });

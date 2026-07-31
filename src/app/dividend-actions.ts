@@ -8,9 +8,10 @@ import {
   validateDividendInput,
   type RawDividendInput,
 } from "@/lib/dividend-input";
+import { createDividend } from "@/lib/dividend-write";
 import { fetchHistoricalFxRate } from "@/lib/fx";
 import { MARKET_CURRENCY } from "@/lib/market";
-import type { DividendInput, Market } from "@/lib/pnl";
+import type { Market } from "@/lib/pnl";
 import { prisma } from "@/lib/prisma";
 import { verifySymbolExists } from "@/lib/symbol-existence";
 
@@ -56,38 +57,6 @@ function revalidateDividendPages() {
   revalidatePath("/");
   revalidatePath("/dividends");
   revalidatePath("/dividends/history");
-}
-
-async function createDividend(input: DividendInput) {
-  const fxRate = await fetchHistoricalFxRate(
-    input.paymentDate,
-    MARKET_CURRENCY[input.market],
-  );
-
-  const snapshot: DividendSnapshot = { ...input, fxRate };
-
-  return prisma.$transaction(async (tx) => {
-    const dividend = await tx.dividend.create({
-      data: {
-        paymentDate: new Date(input.paymentDate),
-        market: input.market,
-        symbol: input.symbol,
-        amount: input.amount,
-        fxRate,
-      },
-    });
-
-    await tx.dividendAuditLog.create({
-      data: {
-        action: "CREATE",
-        dividendId: dividend.id,
-        before: Prisma.DbNull,
-        after: snapshot as unknown as Prisma.InputJsonValue,
-      },
-    });
-
-    return dividend;
-  });
 }
 
 export interface DividendActionResult {

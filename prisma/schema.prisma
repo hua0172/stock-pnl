@@ -80,3 +80,12 @@ model DividendAuditLog {
 
   @@index([createdAt])
 }
+
+// Singleton row (always id = 1) recording the last date the auto
+// dividend-detection scan ran — needs to be durable across server
+// restarts, unlike the in-memory symbol-name cache, since it gates a
+// once-a-day write rather than just a read.
+model DividendScanState {
+  id          Int      @id @default(1)
+  lastRunDate DateTime?
+}

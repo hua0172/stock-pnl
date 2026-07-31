@@ -14,8 +14,16 @@ export interface YahooChartResult {
 // failure — something fetchYahooChart's single thrown Error type can't do).
 export const YAHOO_USER_AGENT = "Mozilla/5.0";
 
-export function buildYahooChartUrl(symbol: string, range: string): string {
-  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
+// `events` is passed through as-is (e.g. "div" for dividend events) — used
+// by dividend-detection.ts's US dividend-event fetch; existing callers that
+// omit it see no change in the URL they build.
+export function buildYahooChartUrl(
+  symbol: string,
+  range: string,
+  options?: { events?: string },
+): string {
+  const base = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
+  return options?.events ? `${base}&events=${options.events}` : base;
 }
 
 export async function fetchYahooChart(

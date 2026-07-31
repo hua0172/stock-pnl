@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { runDailyDividendScanIfNeeded } from "@/lib/dividend-detection";
 import { fetchCurrentFxRate } from "@/lib/fx";
 import { MARKET_CURRENCY, MARKET_LABEL, MARKET_PRICE_PREFIX } from "@/lib/market";
 import { calculatePnl, type Market, type PnlDividend, type PnlTransaction, type Side, type StockPnl } from "@/lib/pnl";
@@ -36,6 +37,13 @@ function originalRef(stock: StockPnl, amount: number): string | null {
 }
 
 export default async function ReportPage() {
+  const dividendScanErrors: string[] = [];
+  try {
+    dividendScanErrors.push(...(await runDailyDividendScanIfNeeded()));
+  } catch (err) {
+    dividendScanErrors.push(`自動股息偵測失敗：${(err as Error).message}`);
+  }
+
   const rows = await prisma.transaction.findMany({
     orderBy: { tradeDate: "asc" },
   });
@@ -77,7 +85,7 @@ export default async function ReportPage() {
   );
 
   const currentPrices: Partial<Record<string, number>> = {};
-  const dataErrors: string[] = [];
+  const dataErrors: string[] = [...dividendScanErrors];
 
   for (const result of priceResults) {
     if (result.status === "fulfilled") {

@@ -23,17 +23,18 @@ export function formatSymbolLabel(symbol: string, name: string | undefined): str
   return name ? `${name}（${symbol}）` : symbol;
 }
 
-// Taiwan's open-data endpoints are observed to be intermittently slow to
-// connect (sometimes ~500ms, sometimes exceeding undici's 10s default connect
-// timeout entirely, even though the same request succeeds instantly via
-// curl) — an explicit, shorter timeout keeps a bad connection from stalling
-// the page this feeds into for the full default timeout. Name lookup is
-// purely cosmetic, so a timeout here just means fewer names resolve.
-const TW_NAME_FETCH_TIMEOUT_MS = 8000;
+// Taiwan's open-data endpoints (TWSE/TPEx) are observed to be intermittently
+// slow to connect (sometimes ~500ms, sometimes exceeding undici's 10s default
+// connect timeout entirely, even though the same request succeeds instantly
+// via curl) — an explicit, shorter timeout keeps a bad connection from
+// stalling whatever page or scan this feeds into for the full default
+// timeout. Shared with dividend-detection.ts, which fetches from the same
+// two open-data hosts.
+export const TW_OPEN_DATA_FETCH_TIMEOUT_MS = 8000;
 
-async function fetchJsonWithTimeout(url: string): Promise<unknown | null> {
+export async function fetchJsonWithTimeout(url: string): Promise<unknown | null> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TW_NAME_FETCH_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), TW_OPEN_DATA_FETCH_TIMEOUT_MS);
 
   try {
     const res = await fetch(url, {

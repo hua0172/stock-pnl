@@ -112,8 +112,10 @@ export interface OversellViolation {
 // a running sum of several BUYs can land a hair off the "true" total (e.g.
 // 0.1 + 0.7 === 0.7999999999999999). Without this tolerance, selling exactly
 // everything you hold could be misflagged as overselling by a fraction of a
-// share that was never actually there.
-const QUANTITY_EPSILON = 1e-9;
+// share that was never actually there. Exported for dividend-detection.ts,
+// which needs the same tolerance when deciding whether a fully-exited
+// position (quantityHeldAsOf landing a hair above zero) still counts as held.
+export const QUANTITY_EPSILON = 1e-9;
 
 // Replays a SELL-quantity check across a symbol's full chronological history
 // (not just today's total holding), so a backdated SELL that would have been
@@ -157,6 +159,22 @@ export function findOversellViolation(
   }
 
   return null;
+}
+
+// Order-independent — a cutoff-filtered sum, not a chronological replay —
+// since only "on or before asOfDate" membership matters, not sequencing.
+export function quantityHeldAsOf(
+  transactions: TransactionInput[],
+  asOfDate: string,
+): number {
+  let quantityHeld = 0;
+
+  for (const t of transactions) {
+    if (t.tradeDate > asOfDate) continue;
+    quantityHeld += t.side === "BUY" ? t.quantity : -t.quantity;
+  }
+
+  return quantityHeld;
 }
 
 export function calculatePnl(
