@@ -16,6 +16,7 @@ import {
   YAxis,
 } from "recharts";
 import type { StockPnl } from "@/lib/pnl";
+import { formatSymbolLabel } from "@/lib/symbol-name";
 
 // Validated 8-slot categorical palette (dataviz skill reference palette),
 // re-validated against this app's own chart surfaces (#ffffff / #0a0a0a).
@@ -81,10 +82,15 @@ function formatSignedPercent(v: unknown): string {
 function pickNonNull<K extends "returnRatePercent" | "allocationPercent">(
   byStock: StockPnl[],
   key: K,
-): { symbol: string; value: number }[] {
+  symbolNames: Partial<Record<string, string>>,
+): { symbol: string; label: string; value: number }[] {
   return byStock
     .filter((s): s is StockPnl & Record<K, number> => s[key] !== null)
-    .map((s) => ({ symbol: s.symbol, value: s[key] }));
+    .map((s) => ({
+      symbol: s.symbol,
+      label: formatSymbolLabel(s.symbol, symbolNames[s.symbol]),
+      value: s[key],
+    }));
 }
 
 function subscribeToColorScheme(callback: () => void): () => void {
@@ -109,12 +115,18 @@ function usePrefersDark(): boolean {
   );
 }
 
-export function ReportCharts({ byStock }: { byStock: StockPnl[] }) {
+export function ReportCharts({
+  byStock,
+  symbolNames,
+}: {
+  byStock: StockPnl[];
+  symbolNames: Partial<Record<string, string>>;
+}) {
   const dark = usePrefersDark();
   const theme = dark ? DARK_THEME : LIGHT_THEME;
 
-  const returnRateData = pickNonNull(byStock, "returnRatePercent");
-  const allocationData = pickNonNull(byStock, "allocationPercent").sort(
+  const returnRateData = pickNonNull(byStock, "returnRatePercent", symbolNames);
+  const allocationData = pickNonNull(byStock, "allocationPercent", symbolNames).sort(
     (a, b) => b.value - a.value,
   );
 
@@ -127,14 +139,18 @@ export function ReportCharts({ byStock }: { byStock: StockPnl[] }) {
       {returnRateData.length > 0 && (
         <div className="rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-900">
           <h2 className="mb-2 text-sm font-medium text-zinc-500">報酬率</h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={returnRateData} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={returnRateData} margin={{ top: 20, right: 8, left: 0, bottom: 60 }}>
               <CartesianGrid stroke={theme.gridColor} vertical={false} />
               <XAxis
-                dataKey="symbol"
+                dataKey="label"
                 tick={{ fill: theme.axisTextColor, fontSize: 12 }}
                 axisLine={{ stroke: theme.gridColor }}
                 tickLine={false}
+                interval={0}
+                angle={-30}
+                textAnchor="end"
+                height={70}
               />
               <YAxis
                 tick={{ fill: theme.axisTextColor, fontSize: 12 }}
@@ -199,9 +215,13 @@ export function ReportCharts({ byStock }: { byStock: StockPnl[] }) {
               <Pie
                 data={allocationData}
                 dataKey="value"
-                nameKey="symbol"
+                nameKey="label"
                 outerRadius={80}
-                label={(entry) => `${entry.name} ${((entry.percent ?? 0) * 100).toFixed(0)}%`}
+                label={
+                  allocationData.length <= 4
+                    ? (entry) => `${entry.name} ${((entry.percent ?? 0) * 100).toFixed(0)}%`
+                    : false
+                }
               >
                 {allocationData.map((d, i) => (
                   <Cell key={d.symbol} fill={theme.categorical[i % theme.categorical.length]} />

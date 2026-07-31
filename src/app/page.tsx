@@ -4,6 +4,7 @@ import { MARKET_CURRENCY, MARKET_LABEL, MARKET_PRICE_PREFIX } from "@/lib/market
 import { calculatePnl, type Market, type PnlDividend, type PnlTransaction, type Side, type StockPnl } from "@/lib/pnl";
 import { fetchCurrentPrice } from "@/lib/price";
 import { prisma } from "@/lib/prisma";
+import { fetchSymbolNames, formatSymbolLabel } from "@/lib/symbol-name";
 import { ReportCharts } from "./report-charts";
 
 // This page always reflects the latest transactions and live market data —
@@ -91,6 +92,10 @@ export default async function ReportPage() {
   }
 
   const report = calculatePnl(transactions, dividends, currentPrices, currentFxRates);
+
+  const symbolNames = await fetchSymbolNames(
+    uniqueStocks.map((t) => ({ market: t.market, symbol: t.symbol })),
+  );
 
   return (
     <div className="flex flex-1 flex-col gap-8 bg-zinc-50 p-8 font-sans dark:bg-black">
@@ -188,7 +193,9 @@ export default async function ReportPage() {
                 key={s.symbol}
                 className="border-b border-black/[.04] last:border-0 dark:border-white/[.08]"
               >
-                <td className="p-3 font-medium">{s.symbol}</td>
+                <td className="p-3 font-medium">
+                  {formatSymbolLabel(s.symbol, symbolNames[s.symbol])}
+                </td>
                 <td className="p-3">{MARKET_LABEL[s.market]}</td>
                 <td className="p-3">{s.quantityHeld}</td>
                 <td className="p-3">
@@ -255,7 +262,7 @@ export default async function ReportPage() {
         </table>
       </section>
 
-      <ReportCharts byStock={report.byStock} />
+      <ReportCharts byStock={report.byStock} symbolNames={symbolNames} />
     </div>
   );
 }
