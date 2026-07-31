@@ -18,12 +18,16 @@ export function SymbolMarketFields({
   symbol: string;
   onSymbolChange: (symbol: string) => void;
 }) {
-  const [resolvedName, setResolvedName] = useState<string | null>(null);
+  // undefined: no lookup attempted yet (or the field is empty). null: looked
+  // up and found nothing — a non-blocking hint only, not the save-time
+  // existence guard (which cross-checks multiple sources and is what
+  // actually blocks a save).
+  const [resolvedName, setResolvedName] = useState<string | null | undefined>(undefined);
   const [isLookingUp, setIsLookingUp] = useState(false);
 
   async function handleSymbolBlur() {
     if (!symbol) {
-      setResolvedName(null);
+      setResolvedName(undefined);
       return;
     }
     setIsLookingUp(true);
@@ -65,6 +69,11 @@ export function SymbolMarketFields({
         )}
         {!isLookingUp && resolvedName && (
           <span className="text-xs text-zinc-500">{resolvedName}</span>
+        )}
+        {!isLookingUp && resolvedName === null && (
+          <span className="text-xs text-amber-600 dark:text-amber-400">
+            查無此代號的名稱資料，請確認是否正確
+          </span>
         )}
       </label>
     </>

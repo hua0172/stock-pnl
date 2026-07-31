@@ -1,6 +1,7 @@
 import { toYahooSymbolCandidates } from "./market";
 import type { Market } from "./pnl";
 import { fetchTwSymbolNames } from "./symbol-name";
+import { buildYahooChartUrl, YAHOO_USER_AGENT } from "./yahoo";
 
 export interface SourceLookup {
   responded: boolean;
@@ -48,10 +49,9 @@ async function checkTwOpenData(symbol: string): Promise<SourceLookup> {
 // error is treated as "didn't respond" — ambiguous, never a negative signal.
 async function fetchYahooExistence(yahooSymbol: string): Promise<SourceLookup> {
   try {
-    const res = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=1d&interval=1d`,
-      { headers: { "User-Agent": "Mozilla/5.0" } },
-    );
+    const res = await fetch(buildYahooChartUrl(yahooSymbol, "1d"), {
+      headers: { "User-Agent": YAHOO_USER_AGENT },
+    });
 
     if (res.status === 404) {
       return { responded: true, found: false };

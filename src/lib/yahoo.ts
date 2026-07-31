@@ -9,14 +9,23 @@ export interface YahooChartResult {
   };
 }
 
+// Shared with symbol-existence.ts, which needs its own low-level fetch of
+// this same endpoint (to distinguish a definitive 404 from an ambiguous
+// failure — something fetchYahooChart's single thrown Error type can't do).
+export const YAHOO_USER_AGENT = "Mozilla/5.0";
+
+export function buildYahooChartUrl(symbol: string, range: string): string {
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
+}
+
 export async function fetchYahooChart(
   symbol: string,
   range: string,
 ): Promise<YahooChartResult> {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
+  const url = buildYahooChartUrl(symbol, range);
 
   const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0" },
+    headers: { "User-Agent": YAHOO_USER_AGENT },
   });
 
   if (!res.ok) {

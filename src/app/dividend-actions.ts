@@ -12,6 +12,7 @@ import { fetchHistoricalFxRate } from "@/lib/fx";
 import { MARKET_CURRENCY } from "@/lib/market";
 import type { DividendInput, Market } from "@/lib/pnl";
 import { prisma } from "@/lib/prisma";
+import { verifySymbolExists } from "@/lib/symbol-existence";
 
 function snapshotFromRecord(record: Dividend): DividendSnapshot {
   return {
@@ -34,6 +35,10 @@ function parseDividendFormData(formData: FormData): RawDividendInput {
 
 function formatFxRateError(err: unknown): string {
   return `無法取得此發放日期的匯率：${(err as Error).message}`;
+}
+
+function formatSymbolNotFoundError(symbol: string): string {
+  return `找不到股票代號「${symbol}」，請確認代號是否正確。`;
 }
 
 async function findExistingDividend(
@@ -99,6 +104,11 @@ export async function addDividend(
     return { error: validated.error };
   }
 
+  const existence = await verifySymbolExists(validated.value.market, validated.value.symbol);
+  if (existence.confirmedAbsent) {
+    return { error: formatSymbolNotFoundError(validated.value.symbol) };
+  }
+
   try {
     await createDividend(validated.value);
   } catch (err) {
@@ -124,6 +134,11 @@ export async function updateDividend(
   const found = await findExistingDividend(id);
   if ("error" in found) {
     return { error: found.error };
+  }
+
+  const existence = await verifySymbolExists(validated.value.market, validated.value.symbol);
+  if (existence.confirmedAbsent) {
+    return { error: formatSymbolNotFoundError(validated.value.symbol) };
   }
 
   const { before } = found;

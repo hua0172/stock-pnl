@@ -15,6 +15,7 @@ import {
   type TransactionInput,
 } from "@/lib/pnl";
 import { prisma } from "@/lib/prisma";
+import { verifySymbolExists } from "@/lib/symbol-existence";
 import {
   validateTransactionInput,
   type RawTransactionInput,
@@ -53,6 +54,10 @@ function formatOversellError(violation: OversellViolation): string {
 
 function formatDeleteOversellError(violation: OversellViolation): string {
   return `無法刪除：刪除後，${violation.tradeDate} 的賣出交易將變成超賣（當下僅剩 ${violation.availableQuantity} 股，但那筆賣出了 ${violation.attemptedQuantity} 股）`;
+}
+
+function formatSymbolNotFoundError(symbol: string): string {
+  return `找不到股票代號「${symbol}」，請確認代號是否正確。`;
 }
 
 async function existingTransactionInputsForSymbol(
@@ -131,10 +136,18 @@ export async function addTransaction(
     return { error: validated.error };
   }
 
+  // Oversell check first — it's a fast, local computation. The existence
+  // check comes after since it costs a network round-trip; no reason to pay
+  // that cost when a cheaper check would already reject the save.
   const existing = await existingTransactionInputsForSymbol(validated.value.symbol);
   const violation = findOversellViolation([...existing, validated.value]);
   if (violation) {
     return { error: formatOversellError(violation) };
+  }
+
+  const existence = await verifySymbolExists(validated.value.market, validated.value.symbol);
+  if (existence.confirmedAbsent) {
+    return { error: formatSymbolNotFoundError(validated.value.symbol) };
   }
 
   try {
@@ -222,6 +235,8 @@ export async function updateTransaction(
 
   const { before } = found;
 
+  // Oversell checks first (fast, local) — the existence check comes after
+  // since it costs a network round-trip.
   const existingForNewSymbol = await existingTransactionInputsForSymbol(
     validated.value.symbol,
     id,
@@ -243,6 +258,11 @@ export async function updateTransaction(
     if (oldSymbolViolation) {
       return { error: formatOversellError(oldSymbolViolation) };
     }
+  }
+
+  const existence = await verifySymbolExists(validated.value.market, validated.value.symbol);
+  if (existence.confirmedAbsent) {
+    return { error: formatSymbolNotFoundError(validated.value.symbol) };
   }
 
   const dateOrMarketChanged =
