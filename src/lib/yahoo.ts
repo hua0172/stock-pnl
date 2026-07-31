@@ -1,6 +1,7 @@
 export interface YahooChartResult {
   meta: {
     regularMarketPrice: number;
+    shortName?: string;
   };
   timestamp: number[];
   indicators: {
