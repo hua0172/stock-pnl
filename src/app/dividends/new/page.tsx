@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { addDividend, type DividendActionResult } from "@/app/dividend-actions";
+import { SymbolMarketFields } from "@/app/symbol-market-fields";
+import type { Market } from "@/lib/pnl";
 
 const initialState: DividendActionResult = {};
 
@@ -11,6 +13,8 @@ export default function NewDividendPage() {
     addDividend,
     initialState,
   );
+  const [market, setMarket] = useState<Market>("TW");
+  const [symbol, setSymbol] = useState("");
 
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-50 p-8 font-sans dark:bg-black">
@@ -37,28 +41,12 @@ export default function NewDividendPage() {
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
-          市場
-          <select
-            name="market"
-            required
-            className="rounded border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-zinc-800"
-          >
-            <option value="TW">台股（TW）</option>
-            <option value="US">美股（US）</option>
-          </select>
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm">
-          股票代號
-          <input
-            type="text"
-            name="symbol"
-            required
-            placeholder="例如 2330 或 AAPL"
-            className="rounded border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-zinc-800"
-          />
-        </label>
+        <SymbolMarketFields
+          market={market}
+          onMarketChange={setMarket}
+          symbol={symbol}
+          onSymbolChange={setSymbol}
+        />
 
         <label className="flex flex-col gap-1 text-sm">
           金額（稅後實收，原幣別）

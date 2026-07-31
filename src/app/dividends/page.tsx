@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MARKET_LABEL } from "@/lib/market";
 import type { Market } from "@/lib/pnl";
 import { prisma } from "@/lib/prisma";
+import { fetchSymbolNames, formatSymbolLabel } from "@/lib/symbol-name";
 import { DeleteDividendButton } from "./delete-button";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,13 @@ export default async function DividendsPage() {
   const dividends = await prisma.dividend.findMany({
     orderBy: { paymentDate: "asc" },
   });
+
+  const uniqueSymbols = [
+    ...new Map(dividends.map((d) => [d.symbol, d])).values(),
+  ];
+  const symbolNames = await fetchSymbolNames(
+    uniqueSymbols.map((d) => ({ market: d.market as Market, symbol: d.symbol })),
+  );
 
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-50 p-8 font-sans dark:bg-black">
@@ -54,7 +62,9 @@ export default async function DividendsPage() {
                   {d.paymentDate.toISOString().slice(0, 10)}
                 </td>
                 <td className="p-3">{MARKET_LABEL[d.market as Market]}</td>
-                <td className="p-3 font-medium">{d.symbol}</td>
+                <td className="p-3 font-medium">
+                  {formatSymbolLabel(d.symbol, symbolNames[d.symbol])}
+                </td>
                 <td className="p-3">{d.amount}</td>
                 <td className="p-3">
                   <div className="flex gap-3">
