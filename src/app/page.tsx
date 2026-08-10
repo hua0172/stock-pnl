@@ -194,6 +194,7 @@ export default async function ReportPage() {
               <th className="p-3">平均成本（台幣）</th>
               <th className="p-3">總成本</th>
               <th className="p-3">目前股價</th>
+              <th className="p-3">目前市值</th>
               <th className="p-3">已實現</th>
               <th className="p-3">未實現</th>
               <th className="p-3">股息</th>
@@ -232,6 +233,20 @@ export default async function ReportPage() {
                     ? formatOriginal(s.market, s.currentPriceOriginal)
                     : "—"}
                 </td>
+                <td className="p-3">
+                  {s.currentValueTwd !== null ? (
+                    <>
+                      {formatTwd(s.currentValueTwd)}
+                      {originalRef(s, s.currentValueOriginal ?? 0) && (
+                        <span className="ml-1 text-zinc-500">
+                          {originalRef(s, s.currentValueOriginal ?? 0)}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td className={`p-3 ${pnlColor(s.realizedPnlTwd)}`}>
                   {formatTwd(s.realizedPnlTwd)}
                   {originalRef(s, s.realizedPnlOriginal) && (
@@ -263,7 +278,7 @@ export default async function ReportPage() {
             ))}
             {report.byStock.length === 0 && (
               <tr>
-                <td className="p-6 text-center text-zinc-500" colSpan={10}>
+                <td className="p-6 text-center text-zinc-500" colSpan={11}>
                   還沒有任何交易紀錄。
                   <Link href="/transactions/new" className="underline">
                     新增一筆

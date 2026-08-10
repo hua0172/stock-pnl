@@ -44,6 +44,10 @@ _Avoid_: exchange rate, conversion rate
 A holding's Realized P&L + Unrealized P&L expressed as a percentage of its cost: (Realized P&L + Unrealized P&L) ÷ (Weighted-Average Cost × quantity held) — deliberately excludes Dividend Income, reflecting price performance only. Dividend Income is already visible via Total P&L and the dedicated Dividend Income figure; this ratio isn't meant to double-count it. Undefined (`null`, not zero — and excluded from the Return Rate chart) for a closed Holding (zero quantity held) or an open Holding missing a current price or FX rate, since Realized/Unrealized P&L itself is incomplete without one. See [ADR-0008](./docs/adr/0008-return-rate-excludes-dividends.md) for why this reverses an earlier decision.
 _Avoid_: yield, performance (too vague — always mean this specific ratio)
 
+**Market Value** (市值):
+A Holding's quantity held × current price × current FX rate, in TWD (with the original-currency amount shown alongside for `US` Holdings, same convention as Weighted-Average Cost and Total Cost). Zero for a closed Holding (zero quantity held) — no shares held, no value to report — matching how Total Cost already behaves for the same case. `null` only when an open Holding (quantity held > 0) is missing live price or FX rate data, since the figure genuinely can't be computed yet, not zero. Distinct from Holding Allocation's internal notion of market value below, which excludes closed and missing-data Holdings from its total entirely rather than folding in a zero — the two serve different purposes (Market Value reports a single Holding's worth; Holding Allocation compares one Holding's share of the whole).
+_Avoid_: total value (confusable with Total Cost), current value (too vague)
+
 **Holding Allocation** (持股占比):
 A Holding's current market value (quantity held × current price × current FX rate, in TWD) as a percentage of the total market value across all Holdings. Undefined (`null`, not zero) for a closed Holding or one missing live price data — such a Holding is excluded from the total entirely, not counted as contributing zero.
 _Avoid_: weight, position size

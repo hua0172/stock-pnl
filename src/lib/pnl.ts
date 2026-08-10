@@ -60,6 +60,17 @@ export interface StockPnl {
   // number — 0 for a closed holding, since there's no remaining cost basis.
   totalCostTwd: number;
   totalCostOriginal: number;
+  // Current market value of the quantity currently held (currentPrice ×
+  // quantityHeld, the TWD version also × currentFxRate) — a display figure
+  // distinct from marketValueTwd above: 0 for a closed holding (nothing
+  // held, nothing to be worth), not null, so it doesn't inherit
+  // allocationPercent's "excluded from the total" semantics. null only when
+  // an open holding is missing the live data needed to compute it —
+  // currentValueOriginal only needs currentPriceOriginal (no FX dependency,
+  // like avgCostOriginal/totalCostOriginal), while currentValueTwd also
+  // needs currentFxRate.
+  currentValueTwd: number | null;
+  currentValueOriginal: number | null;
 }
 
 export interface PnlOverview {
@@ -267,6 +278,20 @@ export function calculatePnl(
         ? currentPriceOriginal * currentFxRate * quantityHeld
         : null;
 
+    const currentValueTwd =
+      quantityHeld > 0
+        ? hasCompleteMarketData
+          ? currentPriceOriginal * currentFxRate * quantityHeld
+          : null
+        : 0;
+
+    const currentValueOriginal =
+      quantityHeld > 0
+        ? currentPriceOriginal !== null
+          ? currentPriceOriginal * quantityHeld
+          : null
+        : 0;
+
     // Deliberately realizedPnlTwd + unrealizedPnlTwd, not totalPnlTwd —
     // Return Rate reflects price performance only. Dividend income is
     // already visible via Total P&L and dividendTwd; folding it in here
@@ -296,6 +321,8 @@ export function calculatePnl(
       dividendTwd,
       totalCostTwd: avgCostTwd * quantityHeld,
       totalCostOriginal: avgCostOriginal * quantityHeld,
+      currentValueTwd,
+      currentValueOriginal,
     });
   }
 
@@ -329,6 +356,8 @@ export function calculatePnl(
       dividendTwd,
       totalCostTwd: 0,
       totalCostOriginal: 0,
+      currentValueTwd: 0,
+      currentValueOriginal: 0,
     });
   }
 

@@ -45,6 +45,8 @@ describe("calculatePnl", () => {
         dividendTwd: 0,
         totalCostTwd: 50000,
         totalCostOriginal: 50000,
+        currentValueTwd: 60000,
+        currentValueOriginal: 60000,
       },
     ]);
     expect(report.overview).toEqual({
@@ -102,6 +104,8 @@ describe("calculatePnl", () => {
         dividendTwd: 0,
         totalCostTwd: 0,
         totalCostOriginal: 0,
+        currentValueTwd: 0,
+        currentValueOriginal: 0,
       },
     ]);
     expect(report.overview).toEqual({
@@ -169,6 +173,8 @@ describe("calculatePnl", () => {
       dividendTwd: 0,
       totalCostTwd: 82500,
       totalCostOriginal: 82500,
+      currentValueTwd: 87000,
+      currentValueOriginal: 87000,
     });
     expect(report.byStock[0].returnRatePercent).toBeCloseTo(
       14.545454545454545,
@@ -235,6 +241,8 @@ describe("calculatePnl", () => {
         dividendTwd: 0,
         totalCostTwd: 0,
         totalCostOriginal: 0,
+        currentValueTwd: 0,
+        currentValueOriginal: 0,
       },
     ]);
     expect(report.overview).toEqual({
@@ -276,6 +284,65 @@ describe("calculatePnl", () => {
       totalCostTwd: 47250,
       totalCostOriginal: 1500,
     });
+  });
+
+  test("an open US holding's Market Value reflects distinct TWD and original-currency figures", () => {
+    const report = calculatePnl(
+      [
+        {
+          tradeDate: "2026-01-01",
+          market: "US",
+          symbol: "AAPL",
+          side: "BUY",
+          quantity: 10,
+          price: 150,
+          fxRate: 31.5,
+        },
+      ],
+      [],
+      { AAPL: 165 },
+      { TW: 1, US: 32 },
+    );
+
+    // currentValueTwd = 165*32*10 = 52800, using the *current* FX rate — a
+    // distinct figure from currentValueOriginal = 165*10 = 1650, the pure-USD
+    // figure with no FX applied at all.
+    expect(report.byStock[0]).toMatchObject({
+      symbol: "AAPL",
+      market: "US",
+      quantityHeld: 10,
+      currentPriceOriginal: 165,
+      currentFxRate: 32,
+      currentValueTwd: 52800,
+      currentValueOriginal: 1650,
+    });
+  });
+
+  test("an open US holding's Market Value in original currency doesn't depend on FX rate availability", () => {
+    const report = calculatePnl(
+      [
+        {
+          tradeDate: "2026-01-01",
+          market: "US",
+          symbol: "AAPL",
+          side: "BUY",
+          quantity: 10,
+          price: 150,
+          fxRate: 31.5,
+        },
+      ],
+      [],
+      { AAPL: 165 },
+      { TW: 1 }, // US FX rate could not be fetched
+    );
+
+    const [stock] = report.byStock;
+    // currentFxRate is null, so currentValueTwd can't be computed — but
+    // currentValueOriginal only needs currentPriceOriginal, which is
+    // available, so it's still a real number rather than null.
+    expect(stock.currentFxRate).toBeNull();
+    expect(stock.currentValueTwd).toBeNull();
+    expect(stock.currentValueOriginal).toBe(1650);
   });
 
   test("allocationPercent is proportional to market value and sums to 100 across holdings", () => {
@@ -346,6 +413,12 @@ describe("calculatePnl", () => {
     const bySymbol = Object.fromEntries(report.byStock.map((s) => [s.symbol, s]));
     expect(bySymbol["2454"].marketValueTwd).toBeNull();
     expect(bySymbol["2454"].allocationPercent).toBeNull();
+    // 2454 is open (quantityHeld > 0) but missing a live price, so both
+    // Market Value fields are null — a genuine data gap, not a zero — while
+    // 2330, which has a live price, gets a real number.
+    expect(bySymbol["2454"].currentValueTwd).toBeNull();
+    expect(bySymbol["2454"].currentValueOriginal).toBeNull();
+    expect(bySymbol["2330"].currentValueTwd).toBe(60000);
     // 2454 is excluded from the denominator entirely, so 2330 — the only
     // holding with a known market value — gets the full 100%, not ~52%.
     expect(bySymbol["2330"].allocationPercent).toBe(100);
@@ -538,6 +611,8 @@ describe("calculatePnl", () => {
         dividendTwd: 1000,
         totalCostTwd: 0,
         totalCostOriginal: 0,
+        currentValueTwd: 0,
+        currentValueOriginal: 0,
       },
     ]);
     expect(report.overview).toEqual({
@@ -546,6 +621,30 @@ describe("calculatePnl", () => {
       dividendTwd: 1000,
       totalPnlTwd: 1000,
     });
+  });
+
+  test("a fully-sold fractional-share position reports exact-zero Market Value despite floating-point residue", () => {
+    // 0.1 + 0.7 - 0.8 leaves quantityHeld a hair off exact 0 in IEEE-754
+    // (e.g. -1.11e-16, not exactly 0) — same accumulation noise covered by
+    // "a full-position sell isn't blocked by floating-point accumulation
+    // error" above. currentValueTwd/currentValueOriginal must still land on
+    // exact 0 here, not a tiny (and possibly negative) non-zero number that
+    // would render as "-$0" in the report.
+    const report = calculatePnl(
+      [
+        { tradeDate: "2026-01-01", market: "US", symbol: "VOO", side: "BUY", quantity: 0.1, price: 600, fxRate: 32 },
+        { tradeDate: "2026-01-02", market: "US", symbol: "VOO", side: "BUY", quantity: 0.7, price: 610, fxRate: 32 },
+        { tradeDate: "2026-02-01", market: "US", symbol: "VOO", side: "SELL", quantity: 0.8, price: 650, fxRate: 32 },
+      ],
+      [],
+      { VOO: 650 },
+      { TW: 1, US: 32 },
+    );
+
+    const [stock] = report.byStock;
+    expect(stock.quantityHeld).not.toBe(0); // residue exists — this is the point
+    expect(stock.currentValueTwd).toBe(0);
+    expect(stock.currentValueOriginal).toBe(0);
   });
 });
 
