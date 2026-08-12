@@ -8,6 +8,10 @@ A personal, local-only tracker for stock buy/sell transactions across the Taiwan
 A single recorded buy or sell of a stock — market, symbol, trade date, quantity (in shares), price (in the market's original currency), and the TWD exchange rate resolved for that trade date.
 _Avoid_: trade, record, entry
 
+**Symbol** (股票代號):
+The ticker or code identifying a specific stock or ETF within a Market — e.g. `VOO` for a `US` holding, `009816` for a `TW` one. Always stored uppercase-normalized as soon as it's saved, regardless of the letter case it was entered in, so every comparison and grouping in the app — a Holding's identity, the report's per-symbol grouping, the oversell guard, dividend detection, symbol-existence lookups, the symbol-name cache — is effectively case-insensitive by construction, never by an explicit case-insensitive comparison anywhere downstream.
+_Avoid_: ticker, code (used interchangeably in casual conversation; this glossary always says Symbol)
+
 **Market** (市場):
 Which of the two supported exchanges a transaction belongs to — `TW` (Taiwan) or `US`. Determines the transaction's original currency (TWD for `TW`, USD for `US`) and how its current price and symbol format are resolved.
 _Avoid_: exchange, region

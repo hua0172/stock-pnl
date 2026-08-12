@@ -59,7 +59,7 @@ export function parseTransactionsCsv(csvText: string): CsvParseResult {
 
     const tradeDate = cells[columnIndex.trade_date];
     const market = cells[columnIndex.market];
-    const symbol = cells[columnIndex.symbol];
+    const symbol = cells[columnIndex.symbol].toUpperCase();
     const side = cells[columnIndex.side];
     const quantityRaw = cells[columnIndex.quantity];
     const priceRaw = cells[columnIndex.price];

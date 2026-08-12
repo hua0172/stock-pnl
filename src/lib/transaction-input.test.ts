@@ -26,6 +26,21 @@ describe("validateTransactionInput", () => {
     });
   });
 
+  test("a mixed-case symbol is normalized to uppercase", () => {
+    const result = validateTransactionInput({ ...VALID, symbol: "Voo" });
+
+    expect(result).toEqual({
+      value: {
+        tradeDate: "2026-01-01",
+        market: "TW",
+        symbol: "VOO",
+        side: "BUY",
+        quantity: 100,
+        price: 500,
+      },
+    });
+  });
+
   test("a malformed trade date is rejected", () => {
     const result = validateTransactionInput({ ...VALID, tradeDate: "01/01/2026" });
 

@@ -19,7 +19,7 @@ export function validateTransactionInput(
 ): ValidateTransactionInputResult {
   const tradeDate = raw.tradeDate;
   const market = raw.market as Market;
-  const symbol = raw.symbol.trim();
+  const symbol = raw.symbol.trim().toUpperCase();
   const side = raw.side as Side;
   const quantity = typeof raw.quantity === "number" ? raw.quantity : Number(raw.quantity);
   const price = typeof raw.price === "number" ? raw.price : Number(raw.price);

@@ -32,6 +32,27 @@ describe("parseTransactionsCsv", () => {
     ]);
   });
 
+  test("a mixed-case symbol is normalized to uppercase", () => {
+    const csv = [
+      "trade_date,market,symbol,side,quantity,price",
+      "2026-01-01,US,Voo,BUY,10,600",
+    ].join("\n");
+
+    const result = parseTransactionsCsv(csv);
+
+    expect(result.errors).toEqual([]);
+    expect(result.transactions).toEqual([
+      {
+        tradeDate: "2026-01-01",
+        market: "US",
+        symbol: "VOO",
+        side: "BUY",
+        quantity: 10,
+        price: 600,
+      },
+    ]);
+  });
+
   test("a missing required column fails the whole file with one clear error", () => {
     const csv = [
       "trade_date,market,symbol,side,quantity",

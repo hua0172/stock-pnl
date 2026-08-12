@@ -17,7 +17,7 @@ export function validateDividendInput(
 ): ValidateDividendInputResult {
   const paymentDate = raw.paymentDate;
   const market = raw.market as Market;
-  const symbol = raw.symbol.trim();
+  const symbol = raw.symbol.trim().toUpperCase();
   const amount = typeof raw.amount === "number" ? raw.amount : Number(raw.amount);
 
   if (!TRADE_DATE_PATTERN.test(paymentDate)) {

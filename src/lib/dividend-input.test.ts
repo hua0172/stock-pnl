@@ -22,6 +22,19 @@ describe("validateDividendInput", () => {
     });
   });
 
+  test("a mixed-case symbol is normalized to uppercase", () => {
+    const result = validateDividendInput({ ...VALID, symbol: "Voo" });
+
+    expect(result).toEqual({
+      value: {
+        paymentDate: "2026-03-01",
+        market: "TW",
+        symbol: "VOO",
+        amount: 1000,
+      },
+    });
+  });
+
   test("a malformed payment date is rejected", () => {
     const result = validateDividendInput({ ...VALID, paymentDate: "03/01/2026" });
 
